@@ -4,6 +4,14 @@ Do you have monthly/semi-monthly/weekly/every 2 months/other oddly scheduled bil
 
 That's what this application is for. Finance Planner allows you to enter everything into a list and provide an estimate for what your balances will look like every day, between any date ranges that you specify.
 
+## Screenshots
+
+![Configuration](docs/app-config.png)
+
+![Results](docs/app-results.png)
+
+![Metrics](docs/app-metrics.png)
+
 ## Getting started
 
 This application requires GTK3.
@@ -55,8 +63,8 @@ Here's a fairly comprehensive guide on how to use this application:
    2. If viewing over a single year, press `ctrl+I` on your keyboard to be presented with a dialog that rolls up your yearly income and expenses. This is very useful!
 6. **Save your bills to a configuration file!** To do this, you can do any of the following, like you'd traditionally expect:
    1. **Use the dropdown arrow in the top left of the window to see all options, such as save/save as/open/save results/new window/etc**.
+   2. `Ctrl+Shift+S` - Save as. You'll need to do this if it's your first time saving to a new file.
    3. `Ctrl+S` - Save.
-   2. `Ctrl+Shift+S` - Save as.
    4. `Ctrl+O` - Open.
    4. `Ctrl+Shift+O` - Open in a new window.
    4. `Ctrl+N` or `Ctrl+Shift+N` - Create a new config in a new window.
@@ -67,9 +75,11 @@ Here's a fairly comprehensive guide on how to use this application:
 
 There are a couple minor quirks:
 
+* Currently tries to save to `/home/$USER/.config/finance-planner/config.json` by default.
 * If you receive paychecks on e.g. the last day of the month, there is currently no direct method of doing this. I typically go with setting the `Starts` column to something like `2022-01-28`, since every month of the year ends on or after the 28th day, guaranteed.
 * Sorting is currently not supported. Sorry about this - I want this feature too, but I struggled working with the TreeView's documentation.
 * Some GTK theming issues, such as the icon when in the alt+tab interface or the application's name, have not been corrected. I'm not really sure how to do this with gotk, it's not documented in the example code from what I could see. Would like to fix this some time in the future.
+* No way to sort bills, aside from editing the JSON config file itself.
 
 ## Development notes
 
