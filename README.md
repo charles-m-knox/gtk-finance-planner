@@ -27,6 +27,7 @@ cd gtk-finance-planner
 # https://gitea.cmcode.dev/cmcode/gtk-finance-planner/releases
 # and place the file in the current directory,
 # with the name finance-planner
+wget -O finance-planner https://gitea.cmcode.dev/attachments/74152f1c-f483-4579-a7bd-f426f73eee5b # 0.0.1 linux release
 make install
 ```
 
