@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Type=Application
+NoDisplay=false
+Terminal=false
+Exec=@@HOME@@/.local/bin/finance-planner
+Icon=@@HOME@@/.local/share/icons/hicolor/256x256/apps/finance-planner-256.png
+Name=Finance Planner
+Comment=Tracks monthly subscriptions, bills, and other things.
+Categories=
