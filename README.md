@@ -16,7 +16,27 @@ That's what this application is for. Finance Planner allows you to enter everyth
 
 This application requires GTK3.
 
-You can download the application from the releases, or build it yourself below. Binaries for other platforms, as well as possibly AppImages/Flatpak may be available in the future, but we'll see if I have time for that.
+You can download the application from [the releases page here](https://gitea.cmcode.dev/cmcode/gtk-finance-planner/releases), or build it yourself below. Binaries for other platforms, as well as possibly AppImages/Flatpak may be available in the future, but we'll see if I have time for that.
+
+If you'd like a formal application that registers as a desktop application with an icon, then do the following:
+
+```bash
+git clone --depth=1 https://gitea.cmcode.dev/cmcode/gtk-finance-planner.git
+cd gtk-finance-planner
+# download the finance-planner binary from here:
+# https://gitea.cmcode.dev/cmcode/gtk-finance-planner/releases
+# and place the file in the current directory,
+# with the name finance-planner
+make install
+```
+
+To uninstall:
+
+```bash
+make uninstall
+```
+
+### Building from source
 
 This application is compiled for Linux only, currently, and requires Go if you'd like to build it:
 
@@ -26,19 +46,6 @@ cd gtk-finance-planner
 go get -v # this will take a little while
 go build -v
 ./finance-planner
-```
-
-If you'd like a formal application that registers as a desktop application with an icon, then do the following:
-
-```bash
-make build # optional, you just need to have the built finance-planner binary in this directory
-make install
-```
-
-To uninstall:
-
-```bash
-make uninstall
 ```
 
 ## Usage
