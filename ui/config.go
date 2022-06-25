@@ -1,40 +1,67 @@
 package ui
 
 import (
-	"finance-planner/lib"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
+
+	"finance-planner/lib"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
-// TODO: refactor into consts
-var configColumns = []string{
-	"Amount",    // int in cents; 500 = $5.00
-	"Active",    // bool true/false
-	"Name",      // editable string
-	"Frequency", // dropdown, monthly/daily/weekly/yearly
-	"Interval",  // integer, occurs every x frequency
-	"Monday",    // bool
-	"Tuesday",   // bool
-	"Wednesday", // bool
-	"Thursday",  // bool
-	"Friday",    // bool
-	"Saturday",  // bool
-	"Sunday",    // bool
-	"Starts",    // string
+const (
+	ColumnAmount    = "Amount"    // int in cents; 500 = $5.00
+	ColumnActive    = "Active"    // bool true/false
+	ColumnName      = "Name"      // editable string
+	ColumnFrequency = "Frequency" // dropdown, monthly/daily/weekly/yearly
+	ColumnInterval  = "Interval"  // integer, occurs every x frequency
+	ColumnMonday    = "Monday"    // bool
+	ColumnTuesday   = "Tuesday"   // bool
+	ColumnWednesday = "Wednesday" // bool
+	ColumnThursday  = "Thursday"  // bool
+	ColumnFriday    = "Friday"    // bool
+	ColumnSaturday  = "Saturday"  // bool
+	ColumnSunday    = "Sunday"    // bool
+	ColumnStarts    = "Starts"    // string
 	// "StartsDay",   // int
 	// "StartsMonth", // int
 	// "StartsYear",  // int
-	"Ends", // string
+	ColumnEnds = "Ends" // string
 	// "EndsDay",     // int
 	// "EndsMonth",   // int
 	// "EndsYear",    // int
 	// "RRule",       // rendered rrule
-	"Note", // editable string
+	ColumnNote = "Note" // editable string
+)
+
+// TODO: refactor into consts
+var configColumns = []string{
+	ColumnAmount,    // int in cents; 500 = $5.00
+	ColumnActive,    // bool true/false
+	ColumnName,      // editable string
+	ColumnFrequency, // dropdown, monthly/daily/weekly/yearly
+	ColumnInterval,  // integer, occurs every x frequency
+	ColumnMonday,    // bool
+	ColumnTuesday,   // bool
+	ColumnWednesday, // bool
+	ColumnThursday,  // bool
+	ColumnFriday,    // bool
+	ColumnSaturday,  // bool
+	ColumnSunday,    // bool
+	ColumnStarts,    // string
+	// "StartsDay",   // int
+	// "StartsMonth", // int
+	// "StartsYear",  // int
+	ColumnEnds, // string
+	// "EndsDay",     // int
+	// "EndsMonth",   // int
+	// "EndsYear",    // int
+	// "RRule",       // rendered rrule
+	ColumnNote, // editable string
 }
 
 const (
@@ -79,6 +106,14 @@ var configColumnTypes = []glib.Type{
 	// glib.TYPE_STRING,
 	glib.TYPE_STRING,
 }
+
+const (
+	None = "none"
+	Desc = "Desc"
+	Asc  = "Asc"
+)
+
+var CurrentColumnSort = None
 
 // ui functions to build out a config tree view
 
@@ -127,7 +162,6 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 
 	// Set the contents of the list store row that the iterator represents
 	err := listStore.Set(iter, columnsIndexes, rowData)
-
 	if err != nil {
 		return fmt.Errorf("unable to add config tree row: %v", err.Error())
 	}
@@ -229,6 +263,26 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	amtColumn.SetResizable(true)
 	amtColumn.SetClickable(true)
 	amtColumn.SetVisible(true)
+
+	amtColumnBtn, err := amtColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get active column header button: %v", err.Error())
+	}
+	amtColumnBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnAmount, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnAmount, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnAmount, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnAmount, Asc)
+		}
+		log.Printf("amount column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(amtColumn)
 
 	// active column
@@ -238,6 +292,25 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			"failed to create checkbox config column 'Active': %v", err.Error(),
 		)
 	}
+	activeColumnHeaderBtn, err := activeColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get active column header button: %v", err.Error())
+	}
+	activeColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnActive, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnActive, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnActive, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnActive, Asc)
+		}
+		log.Printf("active column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(activeColumn)
 
 	// name column
@@ -277,6 +350,25 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	nameColumn.SetResizable(true)
 	nameColumn.SetClickable(true)
 	nameColumn.SetVisible(true)
+	nameColumnHeaderBtn, err := nameColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get name column header button: %v", err.Error())
+	}
+	nameColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnName, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnName, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnName, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnName, Asc)
+		}
+		log.Printf("name column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(nameColumn)
 
 	// freq column
@@ -328,6 +420,27 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	freqColumn.SetResizable(true)
 	freqColumn.SetClickable(true)
 	freqColumn.SetVisible(true)
+
+	freqColumnBtn, err := freqColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get frequency column header button: %v", err.Error())
+	}
+	freqColumnBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnFrequency, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnFrequency, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnFrequency, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnFrequency, Asc)
+		}
+		log.Printf("frequency column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
+
 	treeView.AppendColumn(freqColumn)
 
 	// interval column
@@ -376,6 +489,25 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	intervalColumn.SetResizable(true)
 	intervalColumn.SetClickable(true)
 	intervalColumn.SetVisible(true)
+	intervalColumnBtn, err := intervalColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get interval column header button: %v", err.Error())
+	}
+	intervalColumnBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnInterval, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnInterval, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnInterval, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnInterval, Asc)
+		}
+		log.Printf("interval column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(intervalColumn)
 
 	// weekday columns
@@ -441,6 +573,25 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	startsColumn.SetResizable(true)
 	startsColumn.SetClickable(true)
 	startsColumn.SetVisible(true)
+	startsColumnHeaderBtn, err := startsColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get starts column header button: %v", err.Error())
+	}
+	startsColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnStarts, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnStarts, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnStarts, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnStarts, Asc)
+		}
+		log.Printf("starts column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(startsColumn)
 
 	// ends column
@@ -486,6 +637,25 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	endsColumn.SetResizable(true)
 	endsColumn.SetClickable(true)
 	endsColumn.SetVisible(true)
+	endsColumnHeaderBtn, err := endsColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get ends column header button: %v", err.Error())
+	}
+	endsColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnEnds, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnEnds, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnEnds, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnEnds, Asc)
+		}
+		log.Printf("ends column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(endsColumn)
 
 	// notes column
@@ -524,6 +694,25 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	notesColumn.SetResizable(true)
 	notesColumn.SetClickable(true)
 	notesColumn.SetVisible(true)
+	notesColumnHeaderBtn, err := notesColumn.GetButton()
+	if err != nil {
+		log.Printf("failed to get notes column header button: %v", err.Error())
+	}
+	notesColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+		if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnNote, Asc) {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnNote, Desc)
+		} else if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnNote, Desc) {
+			CurrentColumnSort = None
+		} else {
+			CurrentColumnSort = fmt.Sprintf("%v%v", ColumnNote, Asc)
+		}
+		log.Printf("notes column clicked, sort column: %v", CurrentColumnSort)
+		updateResults()
+		err := SyncListStore(txs, ls)
+		if err != nil {
+			log.Printf("failed to sync list store: %v", err.Error())
+		}
+	})
 	treeView.AppendColumn(notesColumn)
 
 	// frequency column combo box attempt
@@ -640,18 +829,97 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	return treeView, listStore, nil
 }
 
+func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
+	// sort first
+	sort.SliceStable(
+		*txs,
+		func(i, j int) bool {
+			if CurrentColumnSort == None {
+				return (*txs)[j].Order > (*txs)[i].Order
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnActive, Asc) {
+				return (*txs)[j].Active
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnActive, Desc) {
+				return (*txs)[i].Active
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnAmount, Asc) {
+				return (*txs)[j].Amount > (*txs)[i].Amount
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnAmount, Desc) {
+				return (*txs)[i].Amount > (*txs)[j].Amount
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnFrequency, Asc) {
+				return (*txs)[j].Frequency > (*txs)[i].Frequency
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnFrequency, Desc) {
+				return (*txs)[i].Frequency > (*txs)[j].Frequency
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnInterval, Asc) {
+				return (*txs)[j].Interval > (*txs)[i].Interval
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnInterval, Desc) {
+				return (*txs)[i].Interval > (*txs)[j].Interval
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnNote, Asc) {
+				return (*txs)[j].Note > (*txs)[i].Note
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnNote, Desc) {
+				return (*txs)[i].Note > (*txs)[j].Note
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnName, Asc) {
+				return (*txs)[j].Name > (*txs)[i].Name
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnName, Desc) {
+				return (*txs)[i].Name > (*txs)[j].Name
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnStarts, Asc) {
+				jstarts := fmt.Sprintf("%v-%v-%v", (*txs)[j].StartsYear, (*txs)[j].StartsMonth, (*txs)[j].StartsDay)
+				istarts := fmt.Sprintf("%v-%v-%v", (*txs)[i].StartsYear, (*txs)[i].StartsMonth, (*txs)[i].StartsDay)
+				return jstarts > istarts
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnStarts, Desc) {
+				jstarts := fmt.Sprintf("%v-%v-%v", (*txs)[j].StartsYear, (*txs)[j].StartsMonth, (*txs)[j].StartsDay)
+				istarts := fmt.Sprintf("%v-%v-%v", (*txs)[i].StartsYear, (*txs)[i].StartsMonth, (*txs)[i].StartsDay)
+				return istarts > jstarts
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnEnds, Asc) {
+				jends := fmt.Sprintf("%v-%v-%v", (*txs)[j].EndsYear, (*txs)[j].EndsMonth, (*txs)[j].EndsDay)
+				iends := fmt.Sprintf("%v-%v-%v", (*txs)[i].EndsYear, (*txs)[i].EndsMonth, (*txs)[i].EndsDay)
+				return jends > iends
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnEnds, Desc) {
+				jEnds := fmt.Sprintf("%v-%v-%v", (*txs)[j].EndsYear, (*txs)[j].EndsMonth, (*txs)[j].EndsDay)
+				iends := fmt.Sprintf("%v-%v-%v", (*txs)[i].EndsYear, (*txs)[i].EndsMonth, (*txs)[i].EndsDay)
+				return iends > jEnds
+			}
+			return false
+			// return txs[j].Date.After(txs[i].Date)
+		},
+	)
+
+	ls.Clear()
+
+	// add rows to the tree's list store
+	for _, tx := range *txs {
+		err := addConfigTreeRow(ls, &tx)
+		if err != nil {
+			return fmt.Errorf("failed to sync list store: %v", err.Error())
+		}
+	}
+
+	return nil
+}
+
 func GetConfigAsTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
 	treeView, listStore, err := setupConfigTreeView(txs, updateResults)
 	if err != nil {
 		return tv, ls, fmt.Errorf("failed to set up config tree view: %v", err.Error())
 	}
 
-	// add rows to the tree's list store
-	for _, tx := range *txs {
-		err := addConfigTreeRow(listStore, &tx)
-		if err != nil {
-			return tv, ls, fmt.Errorf("failed to add config row: %v", err.Error())
-		}
+	err = SyncListStore(txs, listStore)
+	if err != nil {
+		return tv, ls, fmt.Errorf("failed to add config row: %v", err.Error())
 	}
 
 	treeView.SetRubberBanding(true)

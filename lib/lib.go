@@ -73,6 +73,7 @@ func FormatAsCurrency(a int) string {
 }
 
 type TX struct { // transaction
+	Order  int    `json:"order"`  // manual ordering
 	Amount int    `json:"amount"` // in cents; 500 = $5.00
 	Active bool   `json:"active"`
 	Name   string `json:"name"`
@@ -175,7 +176,6 @@ func GetTOTP(userID string, issuer string) (string, string, error) {
 			),
 		},
 	)
-
 	if err != nil {
 		return "", "", fmt.Errorf("failed to gen totp: %v", err.Error())
 	}

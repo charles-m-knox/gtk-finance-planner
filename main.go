@@ -1,20 +1,20 @@
 package main
 
 import (
-	"finance-planner/lib"
-	"finance-planner/ui"
-
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"os/user"
 	"path"
 	"strconv"
 	"strings"
-	"encoding/csv"
-	"encoding/json"
-	"io/ioutil"
-	"log"
 	"time"
+
+	"finance-planner/lib"
+	"finance-planner/ui"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -93,6 +93,14 @@ func loadConfig(file string) (txs []lib.TX, err error) {
 		log.Printf("failed to unmarshal json: %v", err.Error())
 	}
 
+	// apply an automatic order to each of the transactions, starting from 1,
+	// since the 0-value is default when undefined
+	for i := range txs {
+		if txs[i].Order == 0 {
+			txs[i].Order = i + 1
+		}
+	}
+
 	return
 }
 
@@ -103,7 +111,7 @@ func saveConfig(file string, txs []lib.TX) (err error) {
 	}
 	dir := path.Dir(file)
 	log.Println(dir)
-	err = os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return fmt.Errorf("failed to create parent directory \"%v\" for saving tx json: %v", dir, err.Error())
 	}
@@ -238,6 +246,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	if len(userTX) == 0 {
 		userTX = []lib.TX{{
+			Order:     1,
 			Amount:    -500,
 			Active:    true,
 			Name:      "New",
@@ -610,12 +619,19 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	nb.SetHExpand(true)
 	nb.SetVExpand(true)
 
+	var configViewListStore *gtk.ListStore
+	// var configViewTreeView *gtk.TreeView
+
 	// now build the config tab page
 	genConfigView := func() (*gtk.ScrolledWindow, *gtk.Label) {
 		configTreeView, configListStore, err := ui.GetConfigAsTreeView(&userTX, updateResultsSilent)
 		if err != nil {
 			log.Fatalf("failed to get config as tree view: %v", err.Error())
 		}
+		// so we can refer to them later
+		configViewListStore = configListStore
+		// configViewTreeView = configTreeView
+
 		configTreeView.SetEnableSearch(false)
 		configTab, err := gtk.LabelNew("Config")
 		if err != nil {
@@ -643,7 +659,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				// str, _ := value.GetString()
 				// items = append(items, str)
 			}
-			// log.Printf("selection changed: %v, %v", s, selectedConfigItemIndexes)
+			log.Printf("selection changed: %v, %v", s, selectedConfigItemIndexes)
 		}
 
 		configTreeSelection.Connect("changed", selectionChanged)
@@ -703,6 +719,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 					if len(userTX) == 0 {
 						extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
 						userTX = []lib.TX{{
+							Order:     1,
 							Amount:    -500,
 							Active:    true,
 							Name:      "New",
@@ -764,19 +781,24 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	addConfItemHandler := func() {
-		nb.RemovePage(TAB_CONFIG)
+		// nb.RemovePage(TAB_CONFIG)
 		userTX = append(userTX, lib.TX{
+			Order:     len(userTX) + 1,
 			Amount:    -500,
 			Active:    true,
 			Name:      "New",
 			Frequency: "WEEKLY",
 			Interval:  1,
 		})
-		newConfigSw, newLabel := genConfigView()
-		nb.InsertPage(newConfigSw, newLabel, TAB_CONFIG)
 		updateResults(false)
-		win.ShowAll()
-		nb.SetCurrentPage(TAB_CONFIG)
+		configViewListStore.Clear()
+		ui.SyncListStore(&userTX, configViewListStore)
+
+		// old code - this is less efficient and jitters the view
+		// newConfigSw, newLabel := genConfigView()
+		// nb.InsertPage(newConfigSw, newLabel, TAB_CONFIG)
+		// win.ShowAll()
+		// nb.SetCurrentPage(TAB_CONFIG)
 	}
 
 	cloneConfItemHandler := func() {
@@ -791,6 +813,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				// https://www.golangprograms.com/how-to-delete-an-element-from-a-slice-in-golang.html
 				// userTX = lib.RemoveTXAtIndex(userTX, selectedConfigItemIndexes[i])
 				userTX = append(userTX, userTX[selectedConfigItemIndexes[i]])
+				userTX[len(userTX)-1].Order = len(userTX)
 			}
 			nb.RemovePage(TAB_CONFIG)
 			newConfigSw, newLabel := genConfigView()
