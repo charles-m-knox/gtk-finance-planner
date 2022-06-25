@@ -36,6 +36,14 @@ const (
 	// "EndsYear",    // int
 	// "RRule",       // rendered rrule
 	ColumnNote = "Note" // editable string
+
+	WeekdayMonday    = "Monday"
+	WeekdayTuesday   = "Tuesday"
+	WeekdayWednesday = "Wednesday"
+	WeekdayThursday  = "Thursday"
+	WeekdayFriday    = "Friday"
+	WeekdaySaturday  = "Saturday"
+	WeekdaySunday    = "Sunday"
 )
 
 // TODO: refactor into consts
@@ -63,6 +71,26 @@ var configColumns = []string{
 	// "RRule",       // rendered rrule
 	ColumnNote, // editable string
 }
+
+var weekdays = []string{
+	WeekdayMonday,
+	WeekdayTuesday,
+	WeekdayWednesday,
+	WeekdayThursday,
+	WeekdayFriday,
+	WeekdaySaturday,
+	WeekdaySunday,
+}
+
+const (
+	WeekdayMondayInt = iota
+	WeekdayTuesdayInt
+	WeekdayWednesdayInt
+	WeekdayThursdayInt
+	WeekdayFridayInt
+	WeekdaySaturdayInt
+	WeekdaySundayInt
+)
 
 const (
 	COLUMN_AMOUNT    = iota // int in cents; 500 = $5.00
@@ -511,23 +539,38 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	treeView.AppendColumn(intervalColumn)
 
 	// weekday columns
-	for i, weekday := range []string{
-		"Monday",
-		"Tuesday",
-		"Wednesday",
-		"Thursday",
-		"Friday",
-		"Saturday",
-		"Sunday",
-	} {
+	for i := range weekdays {
+		// prevents pointers from changing which column is referred to
+		weekdayIndex := int(i)
+		weekday := string(weekdays[weekdayIndex])
+
 		// offset by 4 previous columns
-		activeColumn, err := createCheckboxColumn(weekday, i+5, false, listStore, txs, updateResults)
+		weekdayColumn, err := createCheckboxColumn(weekday, weekdayIndex+5, false, listStore, txs, updateResults)
 		if err != nil {
 			return tv, ls, fmt.Errorf(
 				"failed to create checkbox config column '%v': %v", weekday, err.Error(),
 			)
 		}
-		treeView.AppendColumn(activeColumn)
+		weekdayColumnBtn, err := weekdayColumn.GetButton()
+		if err != nil {
+			log.Printf("failed to get frequency column header button: %v", err.Error())
+		}
+		weekdayColumnBtn.ToWidget().Connect("clicked", func() {
+			if CurrentColumnSort == fmt.Sprintf("%v%v", weekday, Asc) {
+				CurrentColumnSort = fmt.Sprintf("%v%v", weekday, Desc)
+			} else if CurrentColumnSort == fmt.Sprintf("%v%v", weekday, Desc) {
+				CurrentColumnSort = None
+			} else {
+				CurrentColumnSort = fmt.Sprintf("%v%v", weekday, Asc)
+			}
+			log.Printf("%v column clicked, sort column: %v, %v", weekday, CurrentColumnSort, weekdayIndex)
+			updateResults()
+			err := SyncListStore(txs, ls)
+			if err != nil {
+				log.Printf("failed to sync list store: %v", err.Error())
+			}
+		})
+		treeView.AppendColumn(weekdayColumn)
 	}
 
 	// starts column
@@ -834,15 +877,64 @@ func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
 	sort.SliceStable(
 		*txs,
 		func(i, j int) bool {
+			// invisible order column (default when no sort is set)
 			if CurrentColumnSort == None {
 				return (*txs)[j].Order > (*txs)[i].Order
 			}
+
+			// active
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnActive, Asc) {
 				return (*txs)[j].Active
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnActive, Desc) {
 				return (*txs)[i].Active
 			}
+
+			// weekdays
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayMonday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdayMondayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayMonday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdayMondayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayTuesday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdayTuesdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayTuesday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdayTuesdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayWednesday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdayWednesdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayWednesday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdayWednesdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayThursday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdayThursdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayThursday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdayThursdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayFriday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdayFridayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayFriday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdayFridayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySaturday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdaySaturdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySaturday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdaySaturdayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySunday, Asc) {
+				return doesTXHaveWeekday((*txs)[j], WeekdaySundayInt)
+			}
+			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySunday, Desc) {
+				return doesTXHaveWeekday((*txs)[i], WeekdaySundayInt)
+			}
+
+			// other numeric columns
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnAmount, Asc) {
 				return (*txs)[j].Amount > (*txs)[i].Amount
 			}
@@ -862,16 +954,16 @@ func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
 				return (*txs)[i].Interval > (*txs)[j].Interval
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnNote, Asc) {
-				return (*txs)[j].Note > (*txs)[i].Note
+				return strings.ToLower((*txs)[j].Note) > strings.ToLower((*txs)[i].Note)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnNote, Desc) {
-				return (*txs)[i].Note > (*txs)[j].Note
+				return strings.ToLower((*txs)[i].Note) > strings.ToLower((*txs)[j].Note)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnName, Asc) {
-				return (*txs)[j].Name > (*txs)[i].Name
+				return strings.ToLower((*txs)[j].Name) > strings.ToLower((*txs)[i].Name)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnName, Desc) {
-				return (*txs)[i].Name > (*txs)[j].Name
+				return strings.ToLower((*txs)[i].Name) > strings.ToLower((*txs)[j].Name)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", ColumnStarts, Asc) {
 				jstarts := fmt.Sprintf("%v-%v-%v", (*txs)[j].StartsYear, (*txs)[j].StartsMonth, (*txs)[j].StartsDay)
