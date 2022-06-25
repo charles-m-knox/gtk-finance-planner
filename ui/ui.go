@@ -1,10 +1,11 @@
 package ui
 
 import (
-	"finance-planner/lib"
 	"fmt"
 	"log"
 	"strconv"
+
+	"finance-planner/lib"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -107,7 +108,7 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 				return false
 			})
 			updateResults()
-		} else if configColumns[id] == "Active" {
+		} else if configColumns[id] == ColumnActive {
 			(*txs)[i].Active = !(*txs)[i].Active
 			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 				if searchPath.String() == path {
@@ -124,6 +125,7 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 	})
 
 	column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "active", id)
+	// column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "active", id)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create checkbox cell column: %v", err.Error())
 	}
@@ -199,7 +201,6 @@ func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 
 	// Set the contents of the list store row that the iterator represents
 	err := listStore.Set(iter, columnsIndexes, rowData)
-
 	if err != nil {
 		return fmt.Errorf("unable to add row: %v", err.Error())
 	}
