@@ -102,16 +102,17 @@ type PreCalculatedResult struct {
 }
 
 type Result struct { // csv/table output row
-	Record              int
-	Date                time.Time
-	Balance             int
-	CumulativeIncome    int
-	CumulativeExpenses  int
-	DayExpenses         int
-	DayIncome           int
-	DayNet              int
-	DayTransactionNames string
-	DiffFromStart       int
+	Record                   int
+	Date                     time.Time
+	Balance                  int
+	CumulativeIncome         int
+	CumulativeExpenses       int
+	DayExpenses              int
+	DayIncome                int
+	DayNet                   int
+	DayTransactionNames      string
+	DiffFromStart            int
+	DayTransactionNamesSlice []string
 }
 
 type User struct {
@@ -363,6 +364,8 @@ func GetResults(tx []TX, startDate time.Time, endDate time.Time, startBalance in
 			} else {
 				results[i].DayTransactionNames += fmt.Sprintf("; %v", name)
 			}
+
+			results[i].DayTransactionNamesSlice = append(results[i].DayTransactionNamesSlice, name)
 
 			results[i].DayNet += amt
 			diff += amt

@@ -157,17 +157,37 @@ func doesTXHaveWeekday(tx lib.TX, weekday int) bool {
 	return false
 }
 
+func markupText(tx *lib.TX, input string) string {
+	input = strings.ReplaceAll(input, "&", "&amp;")
+	if !tx.Active {
+		return fmt.Sprintf(`<i><span foreground="#AAAAAA">%v</span></i>`, input)
+	}
+	return fmt.Sprintf("%v", input)
+}
+
+// preserves the color ofa active currency values but italicizes values
+// according to enabled/disabled
+// TODO: refactor/improve this, it doesn't really work as intended but I'm
+// lazy at the moment
+func markupCurrency(tx *lib.TX, input string) string {
+	input = strings.ReplaceAll(input, "&", "&amp;")
+	if !tx.Active {
+		return fmt.Sprintf(`<i><span foreground="#CCCCCC">%v</span></i>`, input)
+	}
+	return fmt.Sprintf("%v", input)
+}
+
 func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 	// Get an iterator for a new row at the end of the list store
 	iter := listStore.Append()
 
 	rowData := []interface{}{
-		tx.Order,
-		lib.FormatAsCurrency(tx.Amount),
+		markupText(tx, fmt.Sprint(tx.Order)),
+		markupCurrency(tx, currencyMarkup(tx.Amount)),
 		tx.Active,
-		tx.Name,
-		tx.Frequency,
-		fmt.Sprintf("%v", tx.Interval),
+		markupText(tx, tx.Name),
+		markupText(tx, tx.Frequency),
+		markupText(tx, fmt.Sprint(tx.Interval)),
 		doesTXHaveWeekday(*tx, WeekdayMondayInt),
 		doesTXHaveWeekday(*tx, WeekdayTuesdayInt),
 		doesTXHaveWeekday(*tx, WeekdayWednesdayInt),
@@ -175,8 +195,8 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 		doesTXHaveWeekday(*tx, WeekdayFridayInt),
 		doesTXHaveWeekday(*tx, WeekdaySaturdayInt),
 		doesTXHaveWeekday(*tx, WeekdaySundayInt),
-		fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay),
-		fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay),
+		markupText(tx, fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay)),
+		markupText(tx, fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay)),
 		// tx.StartsDay,
 		// tx.StartsMonth,
 		// tx.StartsYear,
@@ -184,7 +204,7 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 		// tx.EndsMonth,
 		// tx.EndsYear,
 		// tx.RRule,
-		tx.Note,
+		markupText(tx, tx.Note),
 	}
 
 	columnsIndexes := []int{}
@@ -291,7 +311,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	orderCellRenderer.SetVisible(true)
 	orderCellRenderer.Connect("editing-started", orderCellEditingStarted)
 	orderCellRenderer.Connect("edited", orderCellEditingFinished)
-	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnOrder, orderCellRenderer, "text", COLUMN_ORDER)
+	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnOrder, orderCellRenderer, "markup", COLUMN_ORDER)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create amount cell column: %v", err.Error())
 	}
@@ -352,7 +372,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	amtCellRenderer.SetVisible(true)
 	amtCellRenderer.Connect("editing-started", amtCellEditingStarted)
 	amtCellRenderer.Connect("edited", amtCellEditingFinished)
-	amtColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnAmount, amtCellRenderer, "text", COLUMN_AMOUNT)
+	amtColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnAmount, amtCellRenderer, "markup", COLUMN_AMOUNT)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create amount cell column: %v", err.Error())
 	}
@@ -439,7 +459,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	nameCellRenderer.SetVisible(true)
 	nameCellRenderer.Connect("editing-started", nameCellEditingStarted)
 	nameCellRenderer.Connect("edited", nameCellEditingFinished)
-	nameColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnName, nameCellRenderer, "text", COLUMN_NAME)
+	nameColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnName, nameCellRenderer, "markup", COLUMN_NAME)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create Name cell column: %v", err.Error())
 	}
@@ -509,7 +529,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	freqCellRenderer.SetVisible(true)
 	freqCellRenderer.Connect("editing-started", freqCellEditingStarted)
 	freqCellRenderer.Connect("edited", freqCellEditingFinished)
-	freqColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnFrequency, freqCellRenderer, "text", COLUMN_FREQUENCY)
+	freqColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnFrequency, freqCellRenderer, "markup", COLUMN_FREQUENCY)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create Frequency cell column: %v", err.Error())
 	}
@@ -578,7 +598,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	intervalCellRenderer.SetVisible(true)
 	intervalCellRenderer.Connect("editing-started", intervalCellEditingStarted)
 	intervalCellRenderer.Connect("edited", intervalCellEditingFinished)
-	intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnInterval, intervalCellRenderer, "text", COLUMN_INTERVAL)
+	intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnInterval, intervalCellRenderer, "markup", COLUMN_INTERVAL)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create Interval cell column: %v", err.Error())
 	}
@@ -677,7 +697,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	startsCellRenderer.SetVisible(true)
 	startsCellRenderer.Connect("editing-started", startsCellEditingStarted)
 	startsCellRenderer.Connect("edited", startsCellEditingFinished)
-	startsColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnStarts, startsCellRenderer, "text", COLUMN_STARTS)
+	startsColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnStarts, startsCellRenderer, "markup", COLUMN_STARTS)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create Starts cell column: %v", err.Error())
 	}
@@ -741,7 +761,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	endsCellRenderer.SetVisible(true)
 	endsCellRenderer.Connect("editing-started", endsCellEditingStarted)
 	endsCellRenderer.Connect("edited", endsCellEditingFinished)
-	endsColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnEnds, endsCellRenderer, "text", COLUMN_ENDS)
+	endsColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnEnds, endsCellRenderer, "markup", COLUMN_ENDS)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create Ends cell column: %v", err.Error())
 	}
@@ -798,7 +818,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	notesCellRenderer.SetVisible(true)
 	notesCellRenderer.Connect("editing-started", notesCellEditingStarted)
 	notesCellRenderer.Connect("edited", notesCellEditingFinished)
-	notesColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnNote, notesCellRenderer, "text", COLUMN_NOTE)
+	notesColumn, err := gtk.TreeViewColumnNewWithAttribute(ColumnNote, notesCellRenderer, "markup", COLUMN_NOTE)
 	if err != nil {
 		return tv, ls, fmt.Errorf("unable to create Notes cell column: %v", err.Error())
 	}
@@ -882,7 +902,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	// freqCellRenderer.Connect("edited", func(a *gtk.CellRendererCombo, path string, newText string) {
 	// 	log.Println("edited", a, path, newText)
 	// })
-	// freqColumn, err := gtk.TreeViewColumnNewWithAttribute("Frequency", freqCellRenderer, "text", 3)
+	// freqColumn, err := gtk.TreeViewColumnNewWithAttribute("Frequency", freqCellRenderer, "markup", 3)
 	// if err != nil {
 	// 	return tv, ls, fmt.Errorf("unable to create Name cell column: %v", err.Error())
 	// }
