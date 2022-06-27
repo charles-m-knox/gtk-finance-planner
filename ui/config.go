@@ -1048,3 +1048,143 @@ func GetConfEditButtons(ws *state.WinState) (*gtk.Button, *gtk.Button, *gtk.Butt
 
 	return addConfItemBtn, delConfItemBtn, cloneConfItemBtn
 }
+
+func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.Label) {
+	// TODO: refactor the config tree view list store using the same
+	// approach that was used for the results list store
+	configTreeView, err := GetConfigAsTreeView(ws)
+	if err != nil {
+		log.Fatalf("failed to get config as tree view: %v", err.Error())
+	}
+
+	configTreeView.SetEnableSearch(false)
+	configTab, err := gtk.LabelNew(c.ConfigTabLabel)
+	if err != nil {
+		log.Fatalf("failed to set config tab label: %v", err.Error())
+	}
+	configTreeSelection, err := configTreeView.GetSelection()
+	if err != nil {
+		log.Fatalf("failed to get results tree vie sel: %v", err.Error())
+	}
+	configTreeSelection.SetMode(gtk.SELECTION_MULTIPLE)
+
+	selectionChanged := func(s *gtk.TreeSelection) {
+		rows := s.GetSelectedRows(ws.ConfigListStore)
+		// items := make([]string, 0, rows.Length())
+		ws.SelectedConfigItems = []int{}
+
+		for l := rows; l != nil; l = l.Next() {
+			path := l.Data().(*gtk.TreePath)
+			i, _ := strconv.ParseInt(path.String(), 10, 64)
+			ws.SelectedConfigItems = append(ws.SelectedConfigItems, int(i))
+			// iter, _ := configListStore.GetIter(path)
+			// value, _ := configListStore.GetValue(iter, 0)
+			// log.Println(path, iter, value)
+			// str, _ := value.GetString()
+			// items = append(items, str)
+		}
+		log.Printf("selection changed: %v, %v", s, ws.SelectedConfigItems)
+	}
+
+	configTreeSelection.Connect(c.GtkSignalChanged, selectionChanged)
+	configSw, err := gtk.ScrolledWindowNew(nil, nil)
+	if err != nil {
+		log.Fatal("failed to create scrolled window:", err)
+	}
+	configSw.Add(configTreeView)
+	configSw.SetHExpand(true)
+	configSw.SetVExpand(true)
+
+	// TODO: mess with these more; it's preferable to have the tree view
+	// a little more tight against the margins, but may be preferable in
+	// some dimensions
+	// configSw.SetMarginTop(c.UISpacer)
+	// configSw.SetMarginBottom(c.UISpacer)
+	// configSw.SetMarginStart(c.UISpacer)
+	// configSw.SetMarginEnd(c.UISpacer)
+
+	return configSw, configTab
+}
+
+// TODO: refactor and explain this more
+// LoadConfig launches the GTK file chooser dialog and opens a config file for
+// usage in the application. Depending on the value of openInNewWindow, it will
+// either load the config in the existing window, or launch a completely new
+// window with its own independent WinState (this function doesn't touch that
+// new & independent WinState, though; it's abstracted inside the `primary`
+// function call)
+func LoadConfig(
+	ws *state.WinState,
+	primary func(application *gtk.Application, filename string) *state.WinState,
+	openInNewWindow bool,
+) {
+	p, err := gtk.FileChooserDialogNewWith2Buttons(
+		"Load config",
+		ws.Win,
+		gtk.FILE_CHOOSER_ACTION_OPEN,
+		"_Load",
+		gtk.RESPONSE_OK,
+		"_Cancel",
+		gtk.RESPONSE_CANCEL,
+	)
+	if err != nil {
+		log.Fatal("failed to create load config file picker", err.Error())
+	}
+	p.Connect(c.ActionClose, func() { p.Close() })
+	p.Connect("response", func(dialog *gtk.FileChooserDialog, resp int) {
+		if resp == int(gtk.RESPONSE_OK) {
+			// folder, _ := dialog.FileChooser.GetCurrentFolder()
+			// GetFilename includes the full path and file name
+			ws.OpenFileName = dialog.FileChooser.GetFilename()
+			if openInNewWindow {
+				p.Close()
+				p.Destroy()
+				newWinState := primary(ws.App, ws.OpenFileName)
+				newWinState.Win.ShowAll()
+				return
+			} else {
+				*ws.TX, err = lib.LoadConfig(ws.OpenFileName)
+				if err != nil {
+					m := fmt.Sprintf("Failed to load config \"%v\": %v", ws.OpenFileName, err.Error())
+					d := gtk.MessageDialogNew(ws.Win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
+					log.Println(m)
+					d.Run()
+					d.Destroy()
+					p.Close()
+					p.Destroy()
+					return
+				}
+				extraDialogMessageText := ""
+				if len(*ws.TX) == 0 {
+					extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
+					*ws.TX = []lib.TX{{
+						Order:     1,
+						Amount:    -500,
+						Active:    true,
+						Name:      "New",
+						Frequency: "WEEKLY",
+						Interval:  1,
+					}}
+				}
+				ws.Notebook.RemovePage(c.TAB_CONFIG)
+				newConfigSw, newLabel := GetConfigTab(ws)
+				ws.Notebook.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
+				UpdateResults(ws, false)
+				ws.Win.ShowAll()
+				ws.Notebook.SetCurrentPage(c.TAB_CONFIG)
+				ws.Header.SetSubtitle(ws.OpenFileName)
+				m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", ws.OpenFileName, extraDialogMessageText)
+				d := gtk.MessageDialogNew(ws.Win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
+				log.Println(m)
+				p.Close()
+				p.Destroy()
+				d.Run()
+				d.Destroy()
+				return
+			}
+		}
+		p.Close()
+		p.Destroy()
+	})
+	p.Dialog.ShowAll()
+}

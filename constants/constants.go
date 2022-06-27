@@ -42,6 +42,7 @@ const (
 	CloneBtnLabel        = "_Clone"
 	AddBtnLabel          = "_+"
 	DelBtnLabel          = "_-"
+	ConfigTabLabel       = "Config"
 )
 
 const (

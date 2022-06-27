@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	c "finance-planner/constants"
@@ -40,11 +39,12 @@ func main() {
 	}
 
 	application.Connect(c.GtkSignalActivate, func() {
-		win := primary(application, defaultConfigFile)
+		ws := primary(application, defaultConfigFile)
 
 		aNew := glib.SimpleActionNew(c.ActionNew, nil)
 		aNew.Connect(c.GtkSignalActivate, func() {
-			primary(application, defaultConfigFile).ShowAll()
+			ws := primary(application, defaultConfigFile)
+			ws.Win.ShowAll()
 		})
 		application.AddAction(aNew)
 
@@ -54,7 +54,7 @@ func main() {
 		})
 		application.AddAction(aQuit)
 
-		win.ShowAll()
+		ws.Win.ShowAll()
 	})
 
 	os.Exit(application.Run(os.Args))
@@ -62,7 +62,7 @@ func main() {
 
 // primary just creates an instance of a new finance planner window; there
 // can be multiple windows per application session
-func primary(application *gtk.Application, filename string) *gtk.ApplicationWindow {
+func primary(application *gtk.Application, filename string) *state.WinState {
 	// variables stored like this can be accessed via go routines if needed
 	var (
 		nSets = 1
@@ -187,158 +187,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	nb.SetHExpand(true)
 	nb.SetVExpand(true)
 
-	// now build the config tab page
-	genConfigView := func() (*gtk.ScrolledWindow, *gtk.Label) {
-		// TODO: refactor the config tree view list store using the same
-		// approach that was used for the results list store
-		configTreeView, err := ui.GetConfigAsTreeView(ws)
-		if err != nil {
-			log.Fatalf("failed to get config as tree view: %v", err.Error())
-		}
-
-		configTreeView.SetEnableSearch(false)
-		configTab, err := gtk.LabelNew("Config")
-		if err != nil {
-			log.Fatalf("failed to set config tab label: %v", err.Error())
-		}
-		configTreeSelection, err := configTreeView.GetSelection()
-		if err != nil {
-			log.Fatalf("failed to get results tree vie sel: %v", err.Error())
-		}
-		configTreeSelection.SetMode(gtk.SELECTION_MULTIPLE)
-
-		selectionChanged := func(s *gtk.TreeSelection) {
-			rows := s.GetSelectedRows(ws.ConfigListStore)
-			// items := make([]string, 0, rows.Length())
-			ws.SelectedConfigItems = []int{}
-
-			for l := rows; l != nil; l = l.Next() {
-				path := l.Data().(*gtk.TreePath)
-				i, _ := strconv.ParseInt(path.String(), 10, 64)
-				ws.SelectedConfigItems = append(ws.SelectedConfigItems, int(i))
-				// iter, _ := configListStore.GetIter(path)
-				// value, _ := configListStore.GetValue(iter, 0)
-				// log.Println(path, iter, value)
-				// str, _ := value.GetString()
-				// items = append(items, str)
-			}
-			log.Printf("selection changed: %v, %v", s, ws.SelectedConfigItems)
-		}
-
-		configTreeSelection.Connect(c.GtkSignalChanged, selectionChanged)
-		configSw, err := gtk.ScrolledWindowNew(nil, nil)
-		if err != nil {
-			log.Fatal("failed to create scrolled window:", err)
-		}
-		configSw.Add(configTreeView)
-		configSw.SetHExpand(true)
-		configSw.SetVExpand(true)
-
-		// TODO: mess with these more; it's preferable to have the tree view
-		// a little more tight against the margins, but may be preferable in
-		// some dimensions
-		// configSw.SetMarginTop(c.UISpacer)
-		// configSw.SetMarginBottom(c.UISpacer)
-		// configSw.SetMarginStart(c.UISpacer)
-		// configSw.SetMarginEnd(c.UISpacer)
-
-		return configSw, configTab
-	}
-
-	// this has to be defined here since it requires updateResults and genConfigView
-	loadConfFn := func(openInNewWindow bool) {
-		p, err := gtk.FileChooserDialogNewWith2Buttons(
-			"Load config",
-			win,
-			gtk.FILE_CHOOSER_ACTION_OPEN,
-			"_Load",
-			gtk.RESPONSE_OK,
-			"_Cancel",
-			gtk.RESPONSE_CANCEL,
-		)
-		if err != nil {
-			log.Fatal("failed to create load config file picker", err.Error())
-		}
-		p.Connect(c.ActionClose, func() { p.Close() })
-		p.Connect("response", func(dialog *gtk.FileChooserDialog, resp int) {
-			if resp == int(gtk.RESPONSE_OK) {
-				// folder, _ := dialog.FileChooser.GetCurrentFolder()
-				// GetFilename includes the full path and file name
-				ws.OpenFileName = dialog.FileChooser.GetFilename()
-				if openInNewWindow {
-					p.Close()
-					p.Destroy()
-					primary(application, ws.OpenFileName).ShowAll()
-					return
-				} else {
-					*ws.TX, err = lib.LoadConfig(ws.OpenFileName)
-					if err != nil {
-						m := fmt.Sprintf("Failed to load config \"%v\": %v", ws.OpenFileName, err.Error())
-						d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
-						log.Println(m)
-						d.Run()
-						d.Destroy()
-						p.Close()
-						p.Destroy()
-						return
-					}
-					extraDialogMessageText := ""
-					if len(*ws.TX) == 0 {
-						extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
-						*ws.TX = []lib.TX{{
-							Order:     1,
-							Amount:    -500,
-							Active:    true,
-							Name:      "New",
-							Frequency: "WEEKLY",
-							Interval:  1,
-						}}
-					}
-					nb.RemovePage(c.TAB_CONFIG)
-					newConfigSw, newLabel := genConfigView()
-					nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-					ui.UpdateResults(ws, false)
-					win.ShowAll()
-					nb.SetCurrentPage(c.TAB_CONFIG)
-					header.SetSubtitle(ws.OpenFileName)
-					m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", ws.OpenFileName, extraDialogMessageText)
-					d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
-					log.Println(m)
-					p.Close()
-					p.Destroy()
-					d.Run()
-					d.Destroy()
-					return
-				}
-			}
-			p.Close()
-			p.Destroy()
-		})
-		p.Dialog.ShowAll()
-	}
-	loadConfCurrentWindowFn := func() {
-		loadConfFn(false)
-	}
-	loadConfNewWindowFn := func() {
-		loadConfFn(true)
-	}
-
-	delConfItemHandler := func() {
-		ui.DelConfItem(ws)
-	}
-
 	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
 		ws.HideInactive = !ws.HideInactive
 		chkBtn.SetActive(ws.HideInactive)
 		ui.SyncConfigListStore(ws)
-	}
-
-	addConfItemHandler := func() {
-		ui.AddConfItem(ws)
-	}
-
-	cloneConfItemHandler := func() {
-		ui.CloneConfItem(ws)
 	}
 
 	hideInactiveCheckbox, err := gtk.CheckButtonNewWithMnemonic(c.HideInactiveBtnLabel)
@@ -351,9 +203,6 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	hideInactiveCheckbox.Connect(c.GtkSignalClicked, hideInactiveCheckBoxClickedHandler)
 
 	addConfItemBtn, delConfItemBtn, cloneConfItemBtn := ui.GetConfEditButtons(ws)
-	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)
-	delConfItemBtn.Connect(c.GtkSignalClicked, delConfItemHandler)
-	cloneConfItemBtn.Connect(c.GtkSignalClicked, cloneConfItemHandler)
 
 	configGrid, err := gtk.GridNew()
 	if err != nil {
@@ -361,7 +210,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	configGrid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-	configSw, configTab := genConfigView()
+	configSw, configTab := ui.GetConfigTab(ws)
 	configGrid.Attach(configSw, 0, 0, 1, 1)
 
 	nb.AppendPage(configGrid, configTab)
@@ -408,9 +257,29 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		}
 	}()
 
+	delConfItemHandler := func() {
+		ui.DelConfItem(ws)
+	}
+
+	addConfItemHandler := func() {
+		ui.AddConfItem(ws)
+	}
+
+	cloneConfItemHandler := func() {
+		ui.CloneConfItem(ws)
+	}
+
+	loadConfCurrentWindowFn := func() {
+		ui.LoadConfig(ws, primary, false)
+	}
+	loadConfNewWindowFn := func() {
+		ui.LoadConfig(ws, primary, true)
+	}
+
 	quitApp := func() {
 		application.Quit()
 	}
+
 	closeWindow := func() {
 		win.Close()
 		win.Destroy()
@@ -432,7 +301,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	newWindow := func() {
-		primary(application, "").ShowAll()
+		primary(application, "").Win.ShowAll()
 	}
 
 	getStats := func() {
@@ -449,6 +318,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	loadConfCurrentWindowAction.Connect(c.GtkSignalActivate, loadConfCurrentWindowFn)
 	loadConfNewWindowAction.Connect(c.GtkSignalActivate, loadConfNewWindowFn)
+
+	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)
+	delConfItemBtn.Connect(c.GtkSignalClicked, delConfItemHandler)
+	cloneConfItemBtn.Connect(c.GtkSignalClicked, cloneConfItemHandler)
 
 	accelerators, _ := gtk.AccelGroupNew()
 	keyQ, modCtrl := gtk.AcceleratorParse("<Control>q")
@@ -507,5 +380,5 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	win.SetDefaultSize(1366, 768)
 	win.ShowAll()
 
-	return win
+	return ws
 }
