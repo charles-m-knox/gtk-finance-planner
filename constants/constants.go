@@ -26,6 +26,7 @@ const (
 	GtkSignalClicked  = "clicked"
 	GtkSignalActivate = "activate"
 	GtkSignalChanged  = "changed"
+	GtkSignalFocusOut = "focus-out-event"
 
 	ActionClose                   = "close"
 	ActionNew                     = "new"

@@ -15,6 +15,93 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
+func DelConfItem(ws *state.WinState) {
+	if len(ws.SelectedConfigItems) > 0 && len(*ws.TX) > 1 {
+		// remove the conf item from the UserTX config
+		// TODO: remove this spammy logging once things are more efficient
+		log.Println(ws.SelectedConfigItems)
+		// newUserTX := []lib.TX{}
+		// for _, i := range ws.SelectedConfigItems {
+		for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
+			if ws.SelectedConfigItems[i] > len(*ws.TX) {
+				return
+			}
+			// TODO: remove this logging, but only once you've gotten rid
+			// of weird edge cases - for example, clearing the tree view's
+			// list store with any selected items causes a large number of
+			// selection changes (this is probably very inefficient). To
+			// address this, you need to figure out how to un-select values
+			log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
+			*ws.TX = lib.RemoveTXAtIndex(*ws.TX, ws.SelectedConfigItems[i])
+		}
+
+		UpdateResults(ws, false)
+		SyncConfigListStore(ws)
+
+		// TODO: old code - jittery and inefficient
+		// nb.RemovePage(c.TAB_CONFIG)
+		// newConfigSw, newLabel := genConfigView()
+		// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
+		// ui.UpdateResults(ws, false)
+		// win.ShowAll()
+		// nb.SetCurrentPage(c.TAB_CONFIG)
+
+		ws.SelectedConfigItems = []int{}
+	}
+}
+
+func AddConfItem(ws *state.WinState) {
+	// nb.RemovePage(c.TAB_CONFIG)
+	// TODO: create/use helper function that generates new TX instances
+	// TODO: refactor
+	*ws.TX = append(*ws.TX, lib.TX{
+		Order:     len(*ws.TX) + 1,
+		Amount:    -500,
+		Active:    true,
+		Name:      "New",
+		Frequency: "WEEKLY",
+		Interval:  1,
+	})
+
+	UpdateResults(ws, false)
+	SyncConfigListStore(ws)
+
+	// old code - this is less efficient and jitters the view
+	// newConfigSw, newLabel := genConfigView()
+	// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
+	// win.ShowAll()
+	// nb.SetCurrentPage(c.TAB_CONFIG)
+}
+
+func CloneConfItem(ws *state.WinState) {
+	if len(ws.SelectedConfigItems) > 0 {
+		log.Println(ws.SelectedConfigItems)
+		// for _, i := range ws.SelectedConfigItems {
+		for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
+			if ws.SelectedConfigItems[i] > len(*ws.TX) {
+				return
+			}
+			log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
+			*ws.TX = append(
+				*ws.TX,
+				(*ws.TX)[ws.SelectedConfigItems[i]])
+			(*ws.TX)[len(*ws.TX)-1].Order = len(*ws.TX)
+		}
+
+		UpdateResults(ws, false)
+		SyncConfigListStore(ws)
+
+		// TODO: old code - less efficient and jittery
+		// nb.RemovePage(c.TAB_CONFIG)
+		// newConfigSw, newLabel := genConfigView()
+		// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
+		// ui.UpdateResults(ws, false)
+		// win.ShowAll()
+		// nb.SetCurrentPage(c.TAB_CONFIG)
+	}
+	// ws.SelectedConfigItems = []int{}
+}
+
 func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 	// gets an iterator for a new row at the end of the list store
 	iter := listStore.Append()
@@ -938,4 +1025,26 @@ func GetConfigAsTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 	treeView.SetRubberBanding(true)
 
 	return treeView, nil
+}
+
+func GetConfEditButtons(ws *state.WinState) (*gtk.Button, *gtk.Button, *gtk.Button) {
+	addConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.AddBtnLabel)
+	if err != nil {
+		log.Fatal("failed to create add conf item button:", err)
+	}
+	SetSpacerMarginsGtkBtn(addConfItemBtn)
+
+	delConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.DelBtnLabel)
+	if err != nil {
+		log.Fatal("failed to create add conf item button:", err)
+	}
+	SetSpacerMarginsGtkBtn(delConfItemBtn)
+
+	cloneConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.CloneBtnLabel)
+	if err != nil {
+		log.Fatal("failed to create clone conf item button:", err)
+	}
+	SetSpacerMarginsGtkBtn(cloneConfItemBtn)
+
+	return addConfItemBtn, delConfItemBtn, cloneConfItemBtn
 }

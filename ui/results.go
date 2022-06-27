@@ -2,9 +2,11 @@ package ui
 
 import (
 	"fmt"
+	"log"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
+	"finance-planner/state"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -154,4 +156,80 @@ func GenerateResultsTab(txs *[]lib.TX, results []lib.Result, ls *gtk.ListStore) 
 	// resultsSw.SetMarginEnd(c.UISpacer)
 
 	return resultsSw, resultsTabLabel, nil
+}
+
+func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
+	startingBalanceInput, err := gtk.EntryNew()
+	if err != nil {
+		log.Fatal("failed to create starting balance input entry:", err)
+	}
+
+	stDateInput, err := gtk.EntryNew()
+	if err != nil {
+		log.Fatal("failed to create start date input entry:", err)
+	}
+
+	endDateInput, err := gtk.EntryNew()
+	if err != nil {
+		log.Fatal("failed to create end date input entry:", err)
+	}
+
+	stDateInputUpdate := func(e *gtk.Entry) {
+		s, _ := e.GetText()
+		y, m, d := lib.ParseYearMonthDateString(s)
+		if s == "" || (y == 0 && m == 0 && d == 0) {
+			e.SetText("")
+			// TODO: use WinState to show an Invalid Input dialog
+			return
+		}
+		ws.StartDate = fmt.Sprintf("%v-%v-%v", y, m, d)
+		e.SetText(ws.StartDate)
+		UpdateResults(ws, true)
+	}
+
+	endDateInputUpdate := func(e *gtk.Entry) {
+		s, _ := e.GetText()
+		y, m, d := lib.ParseYearMonthDateString(s)
+		if s == "" || (y == 0 && m == 0 && d == 0) {
+			e.SetText("")
+			// TODO: use WinState to show an Invalid Input dialog
+			return
+		}
+		ws.EndDate = fmt.Sprintf("%v-%v-%v", y, m, d)
+		e.SetText(ws.EndDate)
+		UpdateResults(ws, true)
+	}
+
+	updateStartingBalance := func(e *gtk.Entry) {
+		s, _ := e.GetText()
+		if s == "" {
+			// TODO: use WinState to show an Invalid Input dialog
+			return
+		}
+
+		ws.StartingBalance = int(lib.ParseDollarAmount(s, true))
+
+		e.SetText(
+			lib.FormatAsCurrency(
+				ws.StartingBalance,
+			),
+		)
+		UpdateResults(ws, true)
+	}
+
+	startingBalanceInput.SetPlaceholderText(c.BalanceInputPlaceholderText)
+	stDateInput.SetPlaceholderText(ws.StartDate)
+	endDateInput.SetPlaceholderText(ws.EndDate)
+
+	startingBalanceInput.Connect(c.GtkSignalActivate, updateStartingBalance)
+	stDateInput.Connect(c.GtkSignalActivate, stDateInputUpdate)
+	stDateInput.Connect(c.GtkSignalFocusOut, stDateInputUpdate)
+	endDateInput.Connect(c.GtkSignalActivate, endDateInputUpdate)
+	endDateInput.Connect(c.GtkSignalFocusOut, endDateInputUpdate)
+
+	SetSpacerMarginsGtkEntry(startingBalanceInput)
+	SetSpacerMarginsGtkEntry(stDateInput)
+	SetSpacerMarginsGtkEntry(endDateInput)
+
+	return startingBalanceInput, stDateInput, endDateInput
 }

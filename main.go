@@ -176,62 +176,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		log.Fatal("failed to create notebook:", err)
 	}
 
-	startingBalanceInput, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal("failed to create starting balance input entry:", err)
-	}
-	ui.SetSpacerMarginsGtkEntry(startingBalanceInput)
-	startingBalanceInput.SetPlaceholderText(c.BalanceInputPlaceholderText)
-	updateStartingBalance := func() {
-		s, _ := startingBalanceInput.GetText()
-		if s == "" {
-			return
-		}
-		ws.StartingBalance = int(lib.ParseDollarAmount(s, true))
-		startingBalanceInput.SetText(lib.FormatAsCurrency(ws.StartingBalance))
-		ui.UpdateResults(ws, true)
-	}
-	startingBalanceInput.Connect(c.GtkSignalActivate, updateStartingBalance)
-
-	// text input for providing the starting date
-	stDateInput, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal("failed to create start date input entry:", err)
-	}
-	ui.SetSpacerMarginsGtkEntry(stDateInput)
-	stDateInput.SetPlaceholderText(ws.StartDate)
-	stDateInputUpdate := func() {
-		s, _ := stDateInput.GetText()
-		y, m, d := lib.ParseYearMonthDateString(s)
-		if s == "" || (y == 0 && m == 0 && d == 0) {
-			return
-		}
-		ws.StartDate = fmt.Sprintf("%v-%v-%v", y, m, d)
-		stDateInput.SetText(ws.StartDate)
-		ui.UpdateResults(ws, true)
-	}
-	stDateInput.Connect(c.GtkSignalActivate, stDateInputUpdate)
-	stDateInput.Connect("focus-out-event", stDateInputUpdate)
-
-	// text input for providing the ending date
-	endDateInput, err := gtk.EntryNew()
-	if err != nil {
-		log.Fatal("failed to create end date input entry:", err)
-	}
-	ui.SetSpacerMarginsGtkEntry(endDateInput)
-	endDateInput.SetPlaceholderText(ws.EndDate)
-	endDateInputUpdate := func() {
-		s, _ := endDateInput.GetText()
-		y, m, d := lib.ParseYearMonthDateString(s)
-		if s == "" || (y == 0 && m == 0 && d == 0) {
-			return
-		}
-		ws.EndDate = fmt.Sprintf("%v-%v-%v", y, m, d)
-		endDateInput.SetText(ws.EndDate)
-		ui.UpdateResults(ws, true)
-	}
-	endDateInput.Connect(c.GtkSignalActivate, endDateInputUpdate)
-	endDateInput.Connect("focus-out-event", endDateInputUpdate)
+	startingBalanceInput, stDateInput, endDateInput := ui.GetResultsInputs(ws)
 
 	grid, err := gtk.GridNew()
 	if err != nil {
@@ -379,37 +324,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	delConfItemHandler := func() {
-		if len(ws.SelectedConfigItems) > 0 && len(*ws.TX) > 1 {
-			// remove the conf item from the UserTX config
-			log.Println(ws.SelectedConfigItems)
-			// newUserTX := []lib.TX{}
-			// for _, i := range ws.SelectedConfigItems {
-			for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
-				if ws.SelectedConfigItems[i] > len(*ws.TX) {
-					return
-				}
-				// TODO: remove this logging, but only once you've gotten rid
-				// of weird edge cases - for example, clearing the tree view's
-				// list store with any selected items causes a large number of
-				// selection changes (this is probalby very inefficient). To
-				// address this, you need to figure out how to un-select values
-				log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
-				*ws.TX = lib.RemoveTXAtIndex(*ws.TX, ws.SelectedConfigItems[i])
-			}
-
-			ui.UpdateResults(ws, false)
-			ui.SyncConfigListStore(ws)
-
-			// TODO: old code - jittery and inefficient
-			// nb.RemovePage(c.TAB_CONFIG)
-			// newConfigSw, newLabel := genConfigView()
-			// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-			// ui.UpdateResults(ws, false)
-			// win.ShowAll()
-			// nb.SetCurrentPage(c.TAB_CONFIG)
-
-			ws.SelectedConfigItems = []int{}
-		}
+		ui.DelConfItem(ws)
 	}
 
 	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
@@ -419,56 +334,11 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	addConfItemHandler := func() {
-		// nb.RemovePage(c.TAB_CONFIG)
-
-		// TODO: create/use helper function that generates new TX instances
-		// TODO: refactor
-		*ws.TX = append(*ws.TX, lib.TX{
-			Order:     len(*ws.TX) + 1,
-			Amount:    -500,
-			Active:    true,
-			Name:      "New",
-			Frequency: "WEEKLY",
-			Interval:  1,
-		})
-
-		ui.UpdateResults(ws, false)
-		ui.SyncConfigListStore(ws)
-
-		// old code - this is less efficient and jitters the view
-		// newConfigSw, newLabel := genConfigView()
-		// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-		// win.ShowAll()
-		// nb.SetCurrentPage(c.TAB_CONFIG)
+		ui.AddConfItem(ws)
 	}
 
 	cloneConfItemHandler := func() {
-		if len(ws.SelectedConfigItems) > 0 {
-			log.Println(ws.SelectedConfigItems)
-			// for _, i := range ws.SelectedConfigItems {
-			for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
-				if ws.SelectedConfigItems[i] > len(*ws.TX) {
-					return
-				}
-				log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
-				*ws.TX = append(
-					*ws.TX,
-					(*ws.TX)[ws.SelectedConfigItems[i]])
-				(*ws.TX)[len(*ws.TX)-1].Order = len(*ws.TX)
-			}
-
-			ui.UpdateResults(ws, false)
-			ui.SyncConfigListStore(ws)
-
-			// TODO: old code - less efficient and jittery
-			// nb.RemovePage(c.TAB_CONFIG)
-			// newConfigSw, newLabel := genConfigView()
-			// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-			// ui.UpdateResults(ws, false)
-			// win.ShowAll()
-			// nb.SetCurrentPage(c.TAB_CONFIG)
-		}
-		// ws.SelectedConfigItems = []int{}
+		ui.CloneConfItem(ws)
 	}
 
 	hideInactiveCheckbox, err := gtk.CheckButtonNewWithMnemonic(c.HideInactiveBtnLabel)
@@ -480,23 +350,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	hideInactiveCheckbox.Connect(c.GtkSignalClicked, hideInactiveCheckBoxClickedHandler)
 
-	addConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.AddBtnLabel)
-	if err != nil {
-		log.Fatal("failed to create add conf item button:", err)
-	}
-	ui.SetSpacerMarginsGtkBtn(addConfItemBtn)
-
-	delConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.DelBtnLabel)
-	if err != nil {
-		log.Fatal("failed to create add conf item button:", err)
-	}
-	ui.SetSpacerMarginsGtkBtn(delConfItemBtn)
-
-	cloneConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.CloneBtnLabel)
-	if err != nil {
-		log.Fatal("failed to create clone conf item button:", err)
-	}
-	ui.SetSpacerMarginsGtkBtn(cloneConfItemBtn)
+	addConfItemBtn, delConfItemBtn, cloneConfItemBtn := ui.GetConfEditButtons(ws)
+	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)
+	delConfItemBtn.Connect(c.GtkSignalClicked, delConfItemHandler)
+	cloneConfItemBtn.Connect(c.GtkSignalClicked, cloneConfItemHandler)
 
 	configGrid, err := gtk.GridNew()
 	if err != nil {
@@ -506,9 +363,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	configGrid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 	configSw, configTab := genConfigView()
 	configGrid.Attach(configSw, 0, 0, 1, 1)
-	delConfItemBtn.Connect(c.GtkSignalClicked, delConfItemHandler)
-	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)
-	cloneConfItemBtn.Connect(c.GtkSignalClicked, cloneConfItemHandler)
+
 	nb.AppendPage(configGrid, configTab)
 
 	*ws.Results, err = lib.GenerateResultsFromDateStrings(
