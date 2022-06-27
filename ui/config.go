@@ -1027,6 +1027,27 @@ func GetConfigAsTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 	return treeView, nil
 }
 
+func GetHideInactiveCheckbox(ws *state.WinState) *gtk.CheckButton {
+	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
+		ws.HideInactive = !ws.HideInactive
+		chkBtn.SetActive(ws.HideInactive)
+		SyncConfigListStore(ws)
+	}
+
+	hideInactiveCheckbox, err := gtk.CheckButtonNewWithMnemonic(c.HideInactiveBtnLabel)
+	if err != nil {
+		log.Fatal("failed to create 'hide inactive' checkbox:", err)
+	}
+
+	SetSpacerMarginsGtkCheckBtn(hideInactiveCheckbox)
+
+	hideInactiveCheckbox.SetActive(ws.HideInactive)
+
+	hideInactiveCheckbox.Connect(c.GtkSignalClicked, hideInactiveCheckBoxClickedHandler)
+
+	return hideInactiveCheckbox
+}
+
 func GetConfEditButtons(ws *state.WinState) (*gtk.Button, *gtk.Button, *gtk.Button) {
 	addConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.AddBtnLabel)
 	if err != nil {
@@ -1187,4 +1208,20 @@ func LoadConfig(
 		p.Destroy()
 	})
 	p.Dialog.ShowAll()
+}
+
+// GetConfigBaseComponents returns the base components that are required in
+// order to view the transaction tree view presented inside of a GTK notebook
+// tab.
+func GetConfigBaseComponents(ws *state.WinState) (*gtk.Grid, *gtk.Label) {
+	configGrid, err := gtk.GridNew()
+	if err != nil {
+		log.Fatal("failed to create grid:", err)
+	}
+
+	configGrid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	configSw, configTab := GetConfigTab(ws)
+	configGrid.Attach(configSw, 0, 0, 1, 1)
+
+	return configGrid, configTab
 }

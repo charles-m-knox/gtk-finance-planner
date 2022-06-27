@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"embed"
 	"fmt"
 	"log"
 	"strconv"
@@ -441,4 +442,72 @@ func GetStats(win *gtk.ApplicationWindow, latestResults *[]lib.Result) {
 		d.Destroy()
 		return
 	}
+}
+
+// GetStructuralComponents builds and returns pointers to the essential
+// components that form the foundation for the window, regardless of which tab
+// you're viewing. Returns a notebook and a grid.
+func GetStructuralComponents(ws *state.WinState) (*gtk.Notebook, *gtk.Grid) {
+	nb, err := gtk.NotebookNew()
+	ws.Notebook = nb
+	if err != nil {
+		log.Fatal("failed to create notebook:", err)
+	}
+
+	grid, err := gtk.GridNew()
+	if err != nil {
+		log.Fatal("failed to create grid:", err)
+	}
+
+	grid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	ws.Notebook.SetHExpand(true)
+	ws.Notebook.SetVExpand(true)
+
+	return nb, grid
+}
+
+// SetupNotebookPages creates the Config and Results tabs by using pointers
+// to existing ListStores (and lots of other things from the provided WinState)
+// to enable each of the shown tab pages to show what they're supposed to show.
+// This is an important function!
+func SetupNotebookPages(ws *state.WinState) {
+	var err error
+
+	configGrid, configTab := GetConfigBaseComponents(ws)
+
+	*ws.Results, err = lib.GenerateResultsFromDateStrings(
+		ws.TX,
+		ws.StartingBalance,
+		ws.StartDate,
+		ws.EndDate,
+	)
+	if err != nil {
+		log.Fatal("failed to generate results from date strings", err.Error())
+	}
+
+	sw, label, err := GenerateResultsTab(
+		ws.TX,
+		*ws.Results,
+		ws.ResultsListStore,
+	)
+	if err != nil {
+		log.Fatalf("failed to generate results tab: %v", err.Error())
+	}
+	ws.Notebook.AppendPage(configGrid, configTab)
+	ws.Notebook.AppendPage(sw, label)
+}
+
+func SetWinIcon(ws *state.WinState, embeddedIconFS embed.FS) {
+	// TODO: investigate svg pixbuf loading instead of png loading
+	// pb, err := gdk.PixbufNewFromFile("./assets/icon-128.png")
+	icon, err := embeddedIconFS.ReadFile(c.IconAssetPath)
+	if err != nil {
+		log.Fatalf("failed to load embedded app icon: %v", err.Error())
+	}
+
+	pb, err := gdk.PixbufNewFromBytesOnly(icon)
+	if err != nil {
+		log.Fatalf("failed to read app icon: %v", err.Error())
+	}
+	ws.Win.SetIcon(pb)
 }
