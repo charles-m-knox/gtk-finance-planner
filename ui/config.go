@@ -56,63 +56,10 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 	return nil
 }
 
-// Creates a tree view and the list store that holds its data
-func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
-	treeView, err := gtk.TreeViewNew()
-	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create config tree view: %v", err.Error())
-	}
-
-	// TODO: spread this?
-	// func spread(a ...interface{}) []interface{} {
-	// 	return a
-	// }
-	// https://stackoverflow.com/a/57310617
-
-	// create a list store. This is what holds the data that will be
-	// shown on our tree view
-	listStore, err := gtk.ListStoreNew(
-		glib.TYPE_STRING,
-		glib.TYPE_STRING,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_STRING,
-		glib.TYPE_STRING,
-		glib.TYPE_STRING,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_BOOLEAN,
-		glib.TYPE_STRING,
-		glib.TYPE_STRING,
-		// glib.TYPE_INT,
-		// glib.TYPE_INT,
-		// glib.TYPE_INT,
-		// glib.TYPE_INT,
-		// glib.TYPE_INT,
-		// glib.TYPE_INT,
-		// glib.TYPE_STRING,
-		glib.TYPE_STRING,
-	)
-	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create config list store: %v", err.Error())
-	}
-
-	// amtCellRenderer, err := gtk.CellRendererSpinNew()
-	// if err != nil {
-	// 	return tv, ls, fmt.Errorf("unable to create amount column renderer: %v", err.Error())
-	// }
-	// https://docs.gtk.org/gtk3/class.CellRendererSpin.html#properties
-	// amtSpinnerRange, err := gtk.AdjustmentNew(500, -99999999999999, -99999999999999, 100, 10000, 10000)
-	// if err != nil {
-	// 	return tv, ls, fmt.Errorf("unable to generate amtSpinnerRange: %v", err.Error())
-	// }
-	// amtCellRenderer.SetProperty("adjustment", *amtSpinnerRange)
-	// amtCellRenderer.SetProperty("digits", 0)
-
-	// order column
+// getOrderColumn builds out an "Order" column, which is an integer column
+// that allows the user to control an unsorted default order of recurring
+// transactions in the config view
+func getOrderColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	orderCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -129,9 +76,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		log.Println(newText, newValue)
 		(*txs)[i].Order = int(newValue)
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_ORDER}, []interface{}{newValue})
+				ls.Set(iter, []int{c.COLUMN_ORDER}, []interface{}{newValue})
 				return true
 			}
 			return false
@@ -140,7 +87,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	orderCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create amount column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create amount column renderer: %v", err.Error())
 	}
 	orderCellRenderer.SetProperty("editable", true)
 	orderCellRenderer.SetVisible(true)
@@ -148,7 +95,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	orderCellRenderer.Connect("edited", orderCellEditingFinished)
 	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnOrder, orderCellRenderer, "markup", c.COLUMN_ORDER)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create amount cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create amount cell column: %v", err.Error())
 	}
 	orderColumn.SetResizable(true)
 	orderColumn.SetClickable(true)
@@ -158,7 +105,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get active column header button: %v", err.Error())
 	}
-	orderColumnBtn.ToWidget().Connect("clicked", func() {
+	orderColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnOrder, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnOrder, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnOrder, c.Desc) {
@@ -169,12 +116,19 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		updateResults()
 		err := SyncListStore(txs, ls)
 		if err != nil {
+			// TODO: create a "show message" function pointer and call it here
+			// if it's not nil?
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(orderColumn)
 
-	// amount column
+	return orderColumn, nil
+}
+
+// getAmountColumn builds out an "Amount" column, which is an integer column
+// that allows the user to input a positive or negative cash amount and it will
+// be parsed into currency and displayed as currency as well
+func getAmountColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	amtCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -189,9 +143,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		(*txs)[i].Amount = newValue
 		formattedNewValue := lib.FormatAsCurrency(newValue)
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_AMOUNT}, []interface{}{formattedNewValue})
+				ls.Set(iter, []int{c.COLUMN_AMOUNT}, []interface{}{formattedNewValue})
 				return true
 			}
 			return false
@@ -200,7 +154,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	amtCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create amount column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create amount column renderer: %v", err.Error())
 	}
 	amtCellRenderer.SetProperty("editable", true)
 	amtCellRenderer.SetVisible(true)
@@ -208,7 +162,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	amtCellRenderer.Connect("edited", amtCellEditingFinished)
 	amtColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnAmount, amtCellRenderer, "markup", c.COLUMN_AMOUNT)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create amount cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create amount cell column: %v", err.Error())
 	}
 	amtColumn.SetResizable(true)
 	amtColumn.SetClickable(true)
@@ -218,7 +172,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get active column header button: %v", err.Error())
 	}
-	amtColumnBtn.ToWidget().Connect("clicked", func() {
+	amtColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnAmount, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnAmount, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnAmount, c.Desc) {
@@ -233,20 +187,33 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(amtColumn)
 
-	// active column
-	activeColumn, err := createCheckboxColumn(c.ColumnActive, c.COLUMN_ACTIVE, false, listStore, txs, updateResults)
+	return amtColumn, nil
+}
+
+// getActiveColumn builds out an "Active" column, which is a boolean column
+// that allows the user to enable/disable a recurring transaction
+func getActiveColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
+	activeColumn, err := createCheckboxColumn(
+		c.ColumnActive,
+		c.COLUMN_ACTIVE,
+		false,
+		ls,
+		txs,
+		updateResults,
+	)
 	if err != nil {
-		return tv, ls, fmt.Errorf(
-			"failed to create checkbox config column '%v': %v", c.ColumnActive, err.Error(),
+		return tvc, fmt.Errorf(
+			"failed to create checkbox column '%v': %v",
+			c.ColumnActive,
+			err.Error(),
 		)
 	}
 	activeColumnHeaderBtn, err := activeColumn.GetButton()
 	if err != nil {
 		log.Printf("failed to get active column header button: %v", err.Error())
 	}
-	activeColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+	activeColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnActive, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnActive, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnActive, c.Desc) {
@@ -261,9 +228,13 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(activeColumn)
 
-	// name column
+	return activeColumn, nil
+}
+
+// getNameColumn builds out a "Name" column, which is a string column that
+// allows users to set the name of a recurring transaction
+func getNameColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	nameCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -276,9 +247,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		newValue := strings.TrimSpace(newText)
 		(*txs)[i].Name = newValue
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_NAME}, []interface{}{newValue})
+				ls.Set(iter, []int{c.COLUMN_NAME}, []interface{}{newValue})
 				return true
 			}
 			return false
@@ -287,7 +258,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	nameCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Name column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Name column renderer: %v", err.Error())
 	}
 	nameCellRenderer.SetProperty("editable", true)
 	nameCellRenderer.SetVisible(true)
@@ -295,7 +266,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	nameCellRenderer.Connect("edited", nameCellEditingFinished)
 	nameColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnName, nameCellRenderer, "markup", c.COLUMN_NAME)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Name cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Name cell column: %v", err.Error())
 	}
 	nameColumn.SetResizable(true)
 	nameColumn.SetClickable(true)
@@ -304,7 +275,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get name column header button: %v", err.Error())
 	}
-	nameColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+	nameColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnName, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnName, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnName, c.Desc) {
@@ -319,9 +290,15 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(nameColumn)
 
-	// freq column
+	return nameColumn, nil
+}
+
+// getFrequencyColumn builds out a "Frequency" column, which is a string
+// column that allows the user to specify monthly/weekly/yearly recurrences
+// TODO: make this form of input more user friendly - currently it requires
+// users to just simply type "MONTHLY"/"YEARLY"/"WEEKLY"
+func getFrequencyColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	freqCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -346,9 +323,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		}
 		(*txs)[i].Frequency = newValue
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_FREQUENCY}, []interface{}{newValue})
+				ls.Set(iter, []int{c.COLUMN_FREQUENCY}, []interface{}{newValue})
 				return true
 			}
 			return false
@@ -357,7 +334,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	freqCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Frequency column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Frequency column renderer: %v", err.Error())
 	}
 	freqCellRenderer.SetProperty("editable", true)
 	freqCellRenderer.SetVisible(true)
@@ -365,7 +342,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	freqCellRenderer.Connect("edited", freqCellEditingFinished)
 	freqColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnFrequency, freqCellRenderer, "markup", c.COLUMN_FREQUENCY)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Frequency cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Frequency cell column: %v", err.Error())
 	}
 	freqColumn.SetResizable(true)
 	freqColumn.SetClickable(true)
@@ -375,7 +352,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get frequency column header button: %v", err.Error())
 	}
-	freqColumnBtn.ToWidget().Connect("clicked", func() {
+	freqColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnFrequency, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnFrequency, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnFrequency, c.Desc) {
@@ -391,9 +368,19 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		}
 	})
 
-	treeView.AppendColumn(freqColumn)
+	return freqColumn, nil
+}
 
-	// interval column
+// getIntervalColumn builds out an "Interval" column, which is an integer
+// column that allows the user to specify the interval at which a recurring
+// transaction occurs - for example, interval=2 means that every 2
+// occurrences of the recurring transaction's calendar sequence, the transaction
+// will occur, as opposed to interval=1, where it would occur every single
+// calendar occurrence. e.g. bi-monthly on the 7th versus every month on the
+// 7th.
+// TODO: refactor this to use signal constants, and also refactor functions
+// for more unit testability
+func getIntervalColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	intervalCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -415,9 +402,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		}
 		(*txs)[i].Interval = int(newValue)
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_INTERVAL}, []interface{}{newValue})
+				ls.Set(iter, []int{c.COLUMN_INTERVAL}, []interface{}{newValue})
 				return true
 			}
 			return false
@@ -426,7 +413,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	intervalCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Interval column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Interval column renderer: %v", err.Error())
 	}
 	intervalCellRenderer.SetProperty("editable", true)
 	intervalCellRenderer.SetVisible(true)
@@ -434,7 +421,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	intervalCellRenderer.Connect("edited", intervalCellEditingFinished)
 	intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnInterval, intervalCellRenderer, "markup", c.COLUMN_INTERVAL)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Interval cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Interval cell column: %v", err.Error())
 	}
 	intervalColumn.SetResizable(true)
 	intervalColumn.SetClickable(true)
@@ -443,7 +430,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get interval column header button: %v", err.Error())
 	}
-	intervalColumnBtn.ToWidget().Connect("clicked", func() {
+	intervalColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnInterval, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnInterval, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnInterval, c.Desc) {
@@ -458,44 +445,14 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(intervalColumn)
 
-	// weekday columns
-	for i := range c.Weekdays {
-		// prevents pointers from changing which column is referred to
-		weekdayIndex := int(i)
-		weekday := string(c.Weekdays[weekdayIndex])
+	return intervalColumn, nil
+}
 
-		// offset by 4 previous columns
-		weekdayColumn, err := createCheckboxColumn(weekday, c.COLUMN_MONDAY+weekdayIndex, false, listStore, txs, updateResults)
-		if err != nil {
-			return tv, ls, fmt.Errorf(
-				"failed to create checkbox config column '%v': %v", weekday, err.Error(),
-			)
-		}
-		weekdayColumnBtn, err := weekdayColumn.GetButton()
-		if err != nil {
-			log.Printf("failed to get frequency column header button: %v", err.Error())
-		}
-		weekdayColumnBtn.ToWidget().Connect("clicked", func() {
-			if CurrentColumnSort == fmt.Sprintf("%v%v", weekday, c.Asc) {
-				CurrentColumnSort = fmt.Sprintf("%v%v", weekday, c.Desc)
-			} else if CurrentColumnSort == fmt.Sprintf("%v%v", weekday, c.Desc) {
-				CurrentColumnSort = c.None
-			} else {
-				CurrentColumnSort = fmt.Sprintf("%v%v", weekday, c.Asc)
-			}
-			log.Printf("%v column clicked, sort column: %v, %v", weekday, CurrentColumnSort, weekdayIndex)
-			updateResults()
-			err := SyncListStore(txs, ls)
-			if err != nil {
-				log.Printf("failed to sync list store: %v", err.Error())
-			}
-		})
-		treeView.AppendColumn(weekdayColumn)
-	}
-
-	// starts column
+// getStartsColumn builds out a "Starts" column, which is a string column that
+// allows the user to type in a starting date, such as 2020-02-01.
+// TODO: refactoring and cleanup
+func getStartsColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	startsCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -514,9 +471,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		(*txs)[i].StartsMonth = mo
 		(*txs)[i].StartsDay = day
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_STARTS}, []interface{}{fmt.Sprintf("%v-%v-%v", yr, mo, day)})
+				ls.Set(iter, []int{c.COLUMN_STARTS}, []interface{}{fmt.Sprintf("%v-%v-%v", yr, mo, day)})
 				return true
 			}
 			return false
@@ -525,7 +482,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	startsCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Starts column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Starts column renderer: %v", err.Error())
 	}
 	startsCellRenderer.SetProperty("editable", true)
 	startsCellRenderer.SetVisible(true)
@@ -533,7 +490,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	startsCellRenderer.Connect("edited", startsCellEditingFinished)
 	startsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnStarts, startsCellRenderer, "markup", c.COLUMN_STARTS)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Starts cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Starts cell column: %v", err.Error())
 	}
 	startsColumn.SetResizable(true)
 	startsColumn.SetClickable(true)
@@ -542,7 +499,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get starts column header button: %v", err.Error())
 	}
-	startsColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+	startsColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnStarts, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnStarts, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnStarts, c.Desc) {
@@ -557,9 +514,14 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(startsColumn)
 
-	// ends column
+	return startsColumn, nil
+}
+
+// getEndsColumn builds out an "Ends" column, which is a string column that
+// allows the user to type in an ending date, such as 2020-02-01.
+// TODO: refactoring and cleanup
+func getEndsColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	endsCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
 	}
@@ -578,9 +540,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		(*txs)[i].EndsMonth = mo
 		(*txs)[i].EndsDay = day
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_ENDS}, []interface{}{fmt.Sprintf("%v-%v-%v", yr, mo, day)})
+				ls.Set(iter, []int{c.COLUMN_ENDS}, []interface{}{fmt.Sprintf("%v-%v-%v", yr, mo, day)})
 				return true
 			}
 			return false
@@ -589,7 +551,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	endsCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Ends column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Ends column renderer: %v", err.Error())
 	}
 	endsCellRenderer.SetProperty("editable", true)
 	endsCellRenderer.SetVisible(true)
@@ -597,7 +559,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	endsCellRenderer.Connect("edited", endsCellEditingFinished)
 	endsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnEnds, endsCellRenderer, "markup", c.COLUMN_ENDS)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Ends cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Ends cell column: %v", err.Error())
 	}
 	endsColumn.SetResizable(true)
 	endsColumn.SetClickable(true)
@@ -606,7 +568,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get ends column header button: %v", err.Error())
 	}
-	endsColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+	endsColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnEnds, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnEnds, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnEnds, c.Desc) {
@@ -621,8 +583,15 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
-	treeView.AppendColumn(endsColumn)
 
+	return endsColumn, nil
+}
+
+// getNotesColumn builds out a "Note" column, which is a string column that
+// allows the user to type in whatever notes they want for a recurring
+// transaction.
+// TODO: refactoring and cleanup
+func getNotesColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	// notes column
 	notesCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
 		log.Println("editing-started", a, path)
@@ -635,9 +604,9 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 		}
 		(*txs)[i].Note = newText
 		// push the value to the tree view's list store as well as updating the TX definition
-		listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 			if searchPath.String() == path {
-				listStore.Set(iter, []int{c.COLUMN_NOTE}, []interface{}{newText})
+				ls.Set(iter, []int{c.COLUMN_NOTE}, []interface{}{newText})
 				return true
 			}
 			return false
@@ -646,7 +615,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	}
 	notesCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Notes column renderer: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Notes column renderer: %v", err.Error())
 	}
 	notesCellRenderer.SetProperty("editable", true)
 	notesCellRenderer.SetVisible(true)
@@ -654,7 +623,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	notesCellRenderer.Connect("edited", notesCellEditingFinished)
 	notesColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnNote, notesCellRenderer, "markup", c.COLUMN_NOTE)
 	if err != nil {
-		return tv, ls, fmt.Errorf("unable to create Notes cell column: %v", err.Error())
+		return tvc, fmt.Errorf("unable to create Notes cell column: %v", err.Error())
 	}
 	notesColumn.SetResizable(true)
 	notesColumn.SetClickable(true)
@@ -663,7 +632,7 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	if err != nil {
 		log.Printf("failed to get notes column header button: %v", err.Error())
 	}
-	notesColumnHeaderBtn.ToWidget().Connect("clicked", func() {
+	notesColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnNote, c.Asc) {
 			CurrentColumnSort = fmt.Sprintf("%v%v", c.ColumnNote, c.Desc)
 		} else if CurrentColumnSort == fmt.Sprintf("%v%v", c.ColumnNote, c.Desc) {
@@ -678,11 +647,137 @@ func setupConfigTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 			log.Printf("failed to sync list store: %v", err.Error())
 		}
 	})
+
+	return notesColumn, nil
+}
+
+// Creates a tree view and the list store that holds its data
+func setupConfigTreeView(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tv *gtk.TreeView, err error) {
+	treeView, err := gtk.TreeViewNew()
+	if err != nil {
+		return tv, fmt.Errorf("unable to create config tree view: %v", err.Error())
+	}
+
+	orderColumn, err := getOrderColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config order column: %v", err.Error())
+	}
+	treeView.AppendColumn(orderColumn)
+
+	amtColumn, err := getAmountColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config amount column: %v", err.Error())
+	}
+	treeView.AppendColumn(amtColumn)
+
+	activeColumn, err := getActiveColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config active column: %v", err.Error())
+	}
+	treeView.AppendColumn(activeColumn)
+
+	nameColumn, err := getNameColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config name column: %v", err.Error())
+	}
+	treeView.AppendColumn(nameColumn)
+
+	freqColumn, err := getFrequencyColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config frequency column: %v", err.Error())
+	}
+	treeView.AppendColumn(freqColumn)
+
+	intervalColumn, err := getIntervalColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config interval column: %v", err.Error())
+	}
+	treeView.AppendColumn(intervalColumn)
+
+	// weekday columns
+	for i := range c.Weekdays {
+		// prevents pointers from changing which column is referred to
+		weekdayIndex := int(i)
+		weekday := string(c.Weekdays[weekdayIndex])
+
+		// offset by 4 previous columns
+		weekdayColumn, err := createCheckboxColumn(weekday, c.COLUMN_MONDAY+weekdayIndex, false, ls, txs, updateResults)
+		if err != nil {
+			return tv, fmt.Errorf(
+				"failed to create checkbox config column '%v': %v", weekday, err.Error(),
+			)
+		}
+		weekdayColumnBtn, err := weekdayColumn.GetButton()
+		if err != nil {
+			log.Printf("failed to get frequency column header button: %v", err.Error())
+		}
+		weekdayColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
+			if CurrentColumnSort == fmt.Sprintf("%v%v", weekday, c.Asc) {
+				CurrentColumnSort = fmt.Sprintf("%v%v", weekday, c.Desc)
+			} else if CurrentColumnSort == fmt.Sprintf("%v%v", weekday, c.Desc) {
+				CurrentColumnSort = c.None
+			} else {
+				CurrentColumnSort = fmt.Sprintf("%v%v", weekday, c.Asc)
+			}
+			log.Printf("%v column clicked, sort column: %v, %v", weekday, CurrentColumnSort, weekdayIndex)
+			updateResults()
+			err := SyncListStore(txs, ls)
+			if err != nil {
+				log.Printf("failed to sync list store: %v", err.Error())
+			}
+		})
+		treeView.AppendColumn(weekdayColumn)
+	}
+
+	startsColumn, err := getStartsColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config starts column: %v", err.Error())
+	}
+	treeView.AppendColumn(startsColumn)
+
+	endsColumn, err := getEndsColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config ends column: %v", err.Error())
+	}
+	treeView.AppendColumn(endsColumn)
+
+	notesColumn, err := getNotesColumn(txs, ls, updateResults)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config notes column: %v", err.Error())
+	}
 	treeView.AppendColumn(notesColumn)
 
-	treeView.SetModel(listStore)
+	treeView.SetModel(ls)
 
-	return treeView, listStore, nil
+	return treeView, nil
+}
+
+// GetNewConfigListStore creates a list store. This is what holds the data
+// that will be shown on our results tree view
+func GetNewConfigListStore() (ls *gtk.ListStore, err error) {
+	ls, err = gtk.ListStoreNew(
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_BOOLEAN,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+	)
+	if err != nil {
+		return ls, fmt.Errorf("unable to create config list store: %v", err.Error())
+	}
+
+	return
 }
 
 func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
@@ -829,20 +924,20 @@ func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
 	return nil
 }
 
-func GetConfigAsTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
-	treeView, listStore, err := setupConfigTreeView(txs, updateResults)
+func GetConfigAsTreeView(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tv *gtk.TreeView, err error) {
+	treeView, err := setupConfigTreeView(txs, ls, updateResults)
 	if err != nil {
-		return tv, ls, fmt.Errorf("failed to set up config tree view: %v", err.Error())
+		return tv, fmt.Errorf("failed to set up config tree view: %v", err.Error())
 	}
 
-	err = SyncListStore(txs, listStore)
+	err = SyncListStore(txs, ls)
 	if err != nil {
-		return tv, ls, fmt.Errorf("failed to add config row: %v", err.Error())
+		return tv, fmt.Errorf("failed to add config row: %v", err.Error())
 	}
 
 	treeView.SetRubberBanding(true)
 
-	return treeView, listStore, nil
+	return treeView, nil
 }
 
 // SetHideInactive updates the pointer value for the HideInactive flag.

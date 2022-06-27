@@ -67,7 +67,7 @@ func main() {
 // primary just creates an instance of a new finance planner window; there
 // can be multiple windows per application session
 func primary(application *gtk.Application, filename string) *gtk.ApplicationWindow {
-	// for go routine access
+	// variables stored like this can be accessed via go routines if needed
 	var (
 		nSets                     = 1
 		startingBalance           = 50000
@@ -88,6 +88,11 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		log.Fatalf("failed to initialize results list store: %v", err.Error())
 	}
 
+	configViewListStore, err = ui.GetNewConfigListStore()
+	if err != nil {
+		log.Fatalf("failed to initialize config list store: %v", err.Error())
+	}
+
 	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
 
 	// TODO: investigate svg pixbuf loading instead of png loading
@@ -102,8 +107,6 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		log.Fatalf("failed to read app icon: %v", err.Error())
 	}
 	win.SetIcon(pb)
-
-	win.SetIconFromFile("./assets/icon-128.png")
 
 	win.SetTitle(c.FinancialPlanner)
 	header.SetTitle(c.FinancialPlanner)
@@ -290,12 +293,14 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	genConfigView := func() (*gtk.ScrolledWindow, *gtk.Label) {
 		// TODO: refactor the config tree view list store using the same
 		// approach that was used for the results list store
-		configTreeView, configListStore, err := ui.GetConfigAsTreeView(&userTX, updateResultsSilent)
+		configTreeView, err := ui.GetConfigAsTreeView(
+			&userTX,
+			configViewListStore,
+			updateResultsSilent,
+		)
 		if err != nil {
 			log.Fatalf("failed to get config as tree view: %v", err.Error())
 		}
-		// so we can refer to them later
-		configViewListStore = configListStore
 
 		configTreeView.SetEnableSearch(false)
 		configTab, err := gtk.LabelNew("Config")
@@ -309,7 +314,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		configTreeSelection.SetMode(gtk.SELECTION_MULTIPLE)
 
 		selectionChanged := func(s *gtk.TreeSelection) {
-			rows := s.GetSelectedRows(configListStore)
+			rows := s.GetSelectedRows(configViewListStore)
 			// items := make([]string, 0, rows.Length())
 			selectedConfigItemIndexes = []int{}
 
