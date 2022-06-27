@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"log"
 	"os"
@@ -21,12 +22,13 @@ var (
 	HideInactivePtr = &HideInactive
 )
 
+//go:embed assets/*.png
+var embeddedIconFS embed.FS
+
 func main() {
-	// TODO: change appID
-	const appID = "com.charlesmknox.finance-planner"
-	application, err := gtk.ApplicationNew(appID, glib.APPLICATION_FLAGS_NONE)
+	application, err := gtk.ApplicationNew(c.GtkAppID, glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
-		log.Fatal("Could not create application:", err)
+		log.Fatal("failed to create gtk application:", err)
 	}
 
 	currentUser := lib.GetUser()
@@ -90,12 +92,19 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	// TODO: investigate svg pixbuf loading instead of png loading
 	// pb, err := gdk.PixbufNewFromFile("./assets/icon-128.png")
-	// if err != nil {
-	// 	log.Fatalf("failed to read app icon: %v", err.Error())
-	// }
-	// win.SetIcon(pb)
+	icon, err := embeddedIconFS.ReadFile(c.IconAssetPath)
+	if err != nil {
+		log.Fatalf("failed to load embedded app icon: %v", err.Error())
+	}
+
+	pb, err := gdk.PixbufNewFromBytesOnly(icon)
+	if err != nil {
+		log.Fatalf("failed to read app icon: %v", err.Error())
+	}
+	win.SetIcon(pb)
 
 	win.SetIconFromFile("./assets/icon-128.png")
+
 	win.SetTitle(c.FinancialPlanner)
 	header.SetTitle(c.FinancialPlanner)
 	header.SetShowCloseButton(true)
@@ -180,14 +189,17 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		}
 
 		header.SetSubtitle(fmt.Sprintf("%v*", openFileName))
+
 		// TODO: clear and re-populate the list store instead of removing the
 		// entire tab page
+
 		// nb.RemovePage(c.TAB_RESULTS)
 		// newSw, newLabel, resultsListStore, err := ui.GenerateResultsTab(&userTX, latestResults)
 		// if err != nil {
 		// 	log.Fatalf("failed to generate results tab: %v", err.Error())
 		// }
 		// nb.InsertPage(newSw, newLabel, c.TAB_RESULTS)
+
 		if resultsListStore != nil {
 			err = ui.SyncResultsListStore(&latestResults, resultsListStore)
 			if err != nil {

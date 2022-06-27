@@ -15,6 +15,11 @@ const (
 	DefaultConfFileName = "conf.json"
 	DefaultConfFilePath = ".config/finance-planner"
 
+	// TODO: get a proper reverse fqdn for this eventually
+	GtkAppID = "dev.cmcode.gtk-finance-planner"
+
+	IconAssetPath = "assets/icon-128.png"
+
 	BalanceInputPlaceholderText = "$500.00 - Enter a balance to start with."
 	FullGridWidth               = 3
 
