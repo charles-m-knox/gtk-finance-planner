@@ -66,14 +66,13 @@ func getOrderColumn(txs *[]lib.TX, ls *gtk.ListStore, updateResults func()) (tvc
 	orderCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		i, err := strconv.ParseInt(path, 10, 64)
 		if err != nil {
+			// TODO: show error dialog
 			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
 		}
-		log.Println("edited", a, path, newText)
 		newValue, err := strconv.ParseInt(newText, 10, 64)
 		if err != nil {
 			log.Printf("failed to parse user input: %v", err.Error())
 		}
-		log.Println(newText, newValue)
 		(*txs)[i].Order = int(newValue)
 		// push the value to the tree view's list store as well as updating the TX definition
 		ls.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {

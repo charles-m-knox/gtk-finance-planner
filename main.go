@@ -10,6 +10,7 @@ import (
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
+	"finance-planner/state"
 	"finance-planner/ui"
 
 	"github.com/gotk3/gotk3/gdk"
@@ -69,31 +70,35 @@ func main() {
 func primary(application *gtk.Application, filename string) *gtk.ApplicationWindow {
 	// variables stored like this can be accessed via go routines if needed
 	var (
-		nSets                     = 1
-		startingBalance           = 50000
-		startDate                 = lib.GetNowDateString()
-		endDate                   = lib.GetDefaultEndDateString()
-		selectedConfigItemIndexes []int
-		openFileName              = filename
-		userTX                    []lib.TX
-		err                       error
-		latestResults             []lib.Result
-		resultsListStore          *gtk.ListStore
-		configViewListStore       *gtk.ListStore
+		nSets           = 1
+		startingBalance = 50000
+		err             error
+		ws              *state.WinState
 	)
 
+	ws = &state.WinState{
+		OpenFileName:        filename,
+		App:                 application,
+		StartDate:           lib.GetNowDateString(),
+		EndDate:             lib.GetDefaultEndDateString(),
+		SelectedConfigItems: []int{},
+		TX:                  &[]lib.TX{},
+		Results:             &[]lib.Result{},
+	}
+
 	// initialize some values
-	resultsListStore, err = ui.GetNewResultsListStore()
+	ws.ResultsListStore, err = ui.GetNewResultsListStore()
 	if err != nil {
 		log.Fatalf("failed to initialize results list store: %v", err.Error())
 	}
 
-	configViewListStore, err = ui.GetNewConfigListStore()
+	ws.ConfigListStore, err = ui.GetNewConfigListStore()
 	if err != nil {
 		log.Fatalf("failed to initialize config list store: %v", err.Error())
 	}
 
 	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
+	ws.Win = win
 
 	// TODO: investigate svg pixbuf loading instead of png loading
 	// pb, err := gdk.PixbufNewFromFile("./assets/icon-128.png")
@@ -111,14 +116,14 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	win.SetTitle(c.FinancialPlanner)
 	header.SetTitle(c.FinancialPlanner)
 	header.SetShowCloseButton(true)
-	header.SetSubtitle(openFileName)
+	header.SetSubtitle(ws.OpenFileName)
 	mbtn.SetMenuModel(&menu.MenuModel)
 
 	ui.ProcessInitialConfigLoad(
 		win,
 		header,
-		openFileName,
-		&userTX,
+		ws.OpenFileName,
+		ws.TX,
 	)
 
 	aClose := glib.SimpleActionNew(c.ActionClose, nil)
@@ -132,19 +137,19 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	win.InsertActionGroup("fin", finActionGroup)
 
 	saveConfAsFn := func() {
-		ui.SaveConfAs(win, header, &openFileName, &userTX)
+		ui.SaveConfAs(win, header, &ws.OpenFileName, ws.TX)
 	}
 
 	saveOpenConfFn := func() {
-		ui.SaveOpenConf(win, header, &openFileName, &userTX)
+		ui.SaveOpenConf(win, header, &ws.OpenFileName, ws.TX)
 	}
 
 	saveResultsFn := func() {
-		ui.SaveResults(win, header, &latestResults)
+		ui.SaveResults(win, header, ws.Results)
 	}
 
 	copyResultsFn := func() {
-		ui.CopyResults(win, header, &latestResults)
+		ui.CopyResults(win, header, ws.Results)
 	}
 
 	saveConfAsAction := glib.SimpleActionNew(c.ActionSaveConfig, nil)
@@ -181,30 +186,30 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	updateResults := func(switchTo bool) {
-		latestResults, err = lib.GenerateResultsFromDateStrings(
-			&userTX,
+		*ws.Results, err = lib.GenerateResultsFromDateStrings(
+			ws.TX,
 			startingBalance,
-			startDate,
-			endDate,
+			ws.StartDate,
+			ws.EndDate,
 		)
 		if err != nil {
 			log.Fatal("failed to generate results from date strings", err.Error())
 		}
 
-		header.SetSubtitle(fmt.Sprintf("%v*", openFileName))
+		header.SetSubtitle(fmt.Sprintf("%v*", ws.OpenFileName))
 
 		// TODO: clear and re-populate the list store instead of removing the
 		// entire tab page
 
 		// nb.RemovePage(c.TAB_RESULTS)
-		// newSw, newLabel, resultsListStore, err := ui.GenerateResultsTab(&userTX, latestResults)
+		// newSw, newLabel, ws.ResultsListStore, err := ui.GenerateResultsTab(&userTX, *ws.Results)
 		// if err != nil {
 		// 	log.Fatalf("failed to generate results tab: %v", err.Error())
 		// }
 		// nb.InsertPage(newSw, newLabel, c.TAB_RESULTS)
 
-		if resultsListStore != nil {
-			err = ui.SyncResultsListStore(&latestResults, resultsListStore)
+		if ws.ResultsListStore != nil {
+			err = ui.SyncResultsListStore(ws.Results, ws.ResultsListStore)
 			if err != nil {
 				log.Print("failed to sync results list store:", err.Error())
 			}
@@ -218,6 +223,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	updateResultsDefault := func() {
 		updateResults(true)
 	}
+
+	// this function gets used a lot throughout the application, so we need
+	// to pass around a reference to the function
+	ws.UpdateResults = &updateResultsDefault
 
 	updateResultsSilent := func() {
 		updateResults(false)
@@ -246,15 +255,15 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		log.Fatal("failed to create start date input entry:", err)
 	}
 	ui.SetSpacerMarginsGtkEntry(stDateInput)
-	stDateInput.SetPlaceholderText(startDate)
+	stDateInput.SetPlaceholderText(ws.StartDate)
 	stDateInputUpdate := func() {
 		s, _ := stDateInput.GetText()
 		y, m, d := lib.ParseYearMonthDateString(s)
 		if s == "" || (y == 0 && m == 0 && d == 0) {
 			return
 		}
-		startDate = fmt.Sprintf("%v-%v-%v", y, m, d)
-		stDateInput.SetText(startDate)
+		ws.StartDate = fmt.Sprintf("%v-%v-%v", y, m, d)
+		stDateInput.SetText(ws.StartDate)
 		updateResults(true)
 	}
 	stDateInput.Connect(c.GtkSignalActivate, stDateInputUpdate)
@@ -266,15 +275,15 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		log.Fatal("failed to create end date input entry:", err)
 	}
 	ui.SetSpacerMarginsGtkEntry(endDateInput)
-	endDateInput.SetPlaceholderText(endDate)
+	endDateInput.SetPlaceholderText(ws.EndDate)
 	endDateInputUpdate := func() {
 		s, _ := endDateInput.GetText()
 		y, m, d := lib.ParseYearMonthDateString(s)
 		if s == "" || (y == 0 && m == 0 && d == 0) {
 			return
 		}
-		endDate = fmt.Sprintf("%v-%v-%v", y, m, d)
-		endDateInput.SetText(endDate)
+		ws.EndDate = fmt.Sprintf("%v-%v-%v", y, m, d)
+		endDateInput.SetText(ws.EndDate)
 		updateResults(true)
 	}
 	endDateInput.Connect(c.GtkSignalActivate, endDateInputUpdate)
@@ -294,8 +303,8 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		// TODO: refactor the config tree view list store using the same
 		// approach that was used for the results list store
 		configTreeView, err := ui.GetConfigAsTreeView(
-			&userTX,
-			configViewListStore,
+			ws.TX,
+			ws.ConfigListStore,
 			updateResultsSilent,
 		)
 		if err != nil {
@@ -314,21 +323,21 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		configTreeSelection.SetMode(gtk.SELECTION_MULTIPLE)
 
 		selectionChanged := func(s *gtk.TreeSelection) {
-			rows := s.GetSelectedRows(configViewListStore)
+			rows := s.GetSelectedRows(ws.ConfigListStore)
 			// items := make([]string, 0, rows.Length())
-			selectedConfigItemIndexes = []int{}
+			ws.SelectedConfigItems = []int{}
 
 			for l := rows; l != nil; l = l.Next() {
 				path := l.Data().(*gtk.TreePath)
 				i, _ := strconv.ParseInt(path.String(), 10, 64)
-				selectedConfigItemIndexes = append(selectedConfigItemIndexes, int(i))
+				ws.SelectedConfigItems = append(ws.SelectedConfigItems, int(i))
 				// iter, _ := configListStore.GetIter(path)
 				// value, _ := configListStore.GetValue(iter, 0)
 				// log.Println(path, iter, value)
 				// str, _ := value.GetString()
 				// items = append(items, str)
 			}
-			log.Printf("selection changed: %v, %v", s, selectedConfigItemIndexes)
+			log.Printf("selection changed: %v, %v", s, ws.SelectedConfigItems)
 		}
 
 		configTreeSelection.Connect(c.GtkSignalChanged, selectionChanged)
@@ -370,16 +379,16 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			if resp == int(gtk.RESPONSE_OK) {
 				// folder, _ := dialog.FileChooser.GetCurrentFolder()
 				// GetFilename includes the full path and file name
-				openFileName = dialog.FileChooser.GetFilename()
+				ws.OpenFileName = dialog.FileChooser.GetFilename()
 				if openInNewWindow {
 					p.Close()
 					p.Destroy()
-					primary(application, openFileName).ShowAll()
+					primary(application, ws.OpenFileName).ShowAll()
 					return
 				} else {
-					userTX, err = lib.LoadConfig(openFileName)
+					*ws.TX, err = lib.LoadConfig(ws.OpenFileName)
 					if err != nil {
-						m := fmt.Sprintf("Failed to load config \"%v\": %v", openFileName, err.Error())
+						m := fmt.Sprintf("Failed to load config \"%v\": %v", ws.OpenFileName, err.Error())
 						d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
 						log.Println(m)
 						d.Run()
@@ -389,9 +398,9 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 						return
 					}
 					extraDialogMessageText := ""
-					if len(userTX) == 0 {
+					if len(*ws.TX) == 0 {
 						extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
-						userTX = []lib.TX{{
+						*ws.TX = []lib.TX{{
 							Order:     1,
 							Amount:    -500,
 							Active:    true,
@@ -406,8 +415,8 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 					updateResults(false)
 					win.ShowAll()
 					nb.SetCurrentPage(c.TAB_CONFIG)
-					header.SetSubtitle(openFileName)
-					m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", openFileName, extraDialogMessageText)
+					header.SetSubtitle(ws.OpenFileName)
+					m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", ws.OpenFileName, extraDialogMessageText)
 					d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
 					log.Println(m)
 					p.Close()
@@ -430,13 +439,13 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	delConfItemHandler := func() {
-		if len(selectedConfigItemIndexes) > 0 && len(userTX) > 1 {
+		if len(ws.SelectedConfigItems) > 0 && len(*ws.TX) > 1 {
 			// remove the conf item from the UserTX config
-			log.Println(selectedConfigItemIndexes)
+			log.Println(ws.SelectedConfigItems)
 			// newUserTX := []lib.TX{}
-			// for _, i := range selectedConfigItemIndexes {
-			for i := len(selectedConfigItemIndexes) - 1; i >= 0; i-- {
-				if selectedConfigItemIndexes[i] > len(userTX) {
+			// for _, i := range ws.SelectedConfigItems {
+			for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
+				if ws.SelectedConfigItems[i] > len(*ws.TX) {
 					return
 				}
 				// TODO: remove this logging, but only once you've gotten rid
@@ -444,12 +453,12 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				// list store with any selected items causes a large number of
 				// selection changes (this is probalby very inefficient). To
 				// address this, you need to figure out how to un-select values
-				log.Println(i, selectedConfigItemIndexes, selectedConfigItemIndexes[i])
-				userTX = lib.RemoveTXAtIndex(userTX, selectedConfigItemIndexes[i])
+				log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
+				*ws.TX = lib.RemoveTXAtIndex(*ws.TX, ws.SelectedConfigItems[i])
 			}
 
 			updateResults(false)
-			ui.SyncListStore(&userTX, configViewListStore)
+			ui.SyncListStore(ws.TX, ws.ConfigListStore)
 
 			// TODO: old code - jittery and inefficient
 			// nb.RemovePage(c.TAB_CONFIG)
@@ -459,7 +468,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			// win.ShowAll()
 			// nb.SetCurrentPage(c.TAB_CONFIG)
 
-			selectedConfigItemIndexes = []int{}
+			ws.SelectedConfigItems = []int{}
 		}
 	}
 
@@ -469,7 +478,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
 		HideInactive = !HideInactive
 		chkBtn.SetActive(HideInactive)
-		ui.SyncListStore(&userTX, configViewListStore)
+		ui.SyncListStore(ws.TX, ws.ConfigListStore)
 	}
 
 	addConfItemHandler := func() {
@@ -477,8 +486,8 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 		// TODO: create/use helper function that generates new TX instances
 		// TODO: refactor
-		userTX = append(userTX, lib.TX{
-			Order:     len(userTX) + 1,
+		*ws.TX = append(*ws.TX, lib.TX{
+			Order:     len(*ws.TX) + 1,
 			Amount:    -500,
 			Active:    true,
 			Name:      "New",
@@ -487,7 +496,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		})
 
 		updateResults(false)
-		ui.SyncListStore(&userTX, configViewListStore)
+		ui.SyncListStore(ws.TX, ws.ConfigListStore)
 
 		// old code - this is less efficient and jitters the view
 		// newConfigSw, newLabel := genConfigView()
@@ -497,20 +506,22 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	cloneConfItemHandler := func() {
-		if len(selectedConfigItemIndexes) > 0 {
-			log.Println(selectedConfigItemIndexes)
-			// for _, i := range selectedConfigItemIndexes {
-			for i := len(selectedConfigItemIndexes) - 1; i >= 0; i-- {
-				if selectedConfigItemIndexes[i] > len(userTX) {
+		if len(ws.SelectedConfigItems) > 0 {
+			log.Println(ws.SelectedConfigItems)
+			// for _, i := range ws.SelectedConfigItems {
+			for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
+				if ws.SelectedConfigItems[i] > len(*ws.TX) {
 					return
 				}
-				log.Println(i, selectedConfigItemIndexes, selectedConfigItemIndexes[i])
-				userTX = append(userTX, userTX[selectedConfigItemIndexes[i]])
-				userTX[len(userTX)-1].Order = len(userTX)
+				log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
+				*ws.TX = append(
+					*ws.TX,
+					(*ws.TX)[ws.SelectedConfigItems[i]])
+				(*ws.TX)[len(*ws.TX)-1].Order = len(*ws.TX)
 			}
 
 			updateResults(false)
-			ui.SyncListStore(&userTX, configViewListStore)
+			ui.SyncListStore(ws.TX, ws.ConfigListStore)
 
 			// TODO: old code - less efficient and jittery
 			// nb.RemovePage(c.TAB_CONFIG)
@@ -520,7 +531,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			// win.ShowAll()
 			// nb.SetCurrentPage(c.TAB_CONFIG)
 		}
-		// selectedConfigItemIndexes = []int{}
+		// ws.SelectedConfigItems = []int{}
 	}
 
 	hideInactiveCheckbox, err := gtk.CheckButtonNewWithMnemonic(c.HideInactiveBtnLabel)
@@ -563,16 +574,16 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	cloneConfItemBtn.Connect(c.GtkSignalClicked, cloneConfItemHandler)
 	nb.AppendPage(configGrid, configTab)
 
-	latestResults, err = lib.GenerateResultsFromDateStrings(
-		&userTX,
+	*ws.Results, err = lib.GenerateResultsFromDateStrings(
+		ws.TX,
 		startingBalance,
-		startDate,
-		endDate,
+		ws.StartDate,
+		ws.EndDate,
 	)
 	if err != nil {
 		log.Fatal("failed to generate results from date strings", err.Error())
 	}
-	sw, label, err := ui.GenerateResultsTab(&userTX, latestResults, resultsListStore)
+	sw, label, err := ui.GenerateResultsTab(ws.TX, *ws.Results, ws.ResultsListStore)
 	if err != nil {
 		log.Fatalf("failed to generate results tab: %v", err.Error())
 	}
@@ -633,7 +644,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	getStats := func() {
-		ui.GetStats(win, &latestResults)
+		ui.GetStats(win, ws.Results)
 	}
 
 	loadConfCurrentWindowAction.Connect(c.GtkSignalActivate, loadConfCurrentWindowFn)

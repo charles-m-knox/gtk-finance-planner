@@ -22,6 +22,7 @@ import (
 	"golang.org/x/text/message"
 )
 
+// TODO: refactor into constants
 var WeekdayIndex = map[string]int{
 	"Monday":    0,
 	"Tuesday":   1,
@@ -33,6 +34,7 @@ var WeekdayIndex = map[string]int{
 }
 
 // IsWeekday determines if a provided string corresponds to a weekday.
+// TODO: refactor using constants
 func IsWeekday(weekday string) bool {
 	if weekday == "Monday" {
 		return true
@@ -71,7 +73,7 @@ func FormatAsDate(t time.Time) string {
 // return "$1.00".
 func FormatAsCurrency(a int) string {
 	// convert to float and dump as currency string
-	//  TODO: print the integer and clip the last two digits instead of
+	// TODO: print the integer and clip the last two digits instead of
 	// using floats
 	amt := float64(a)
 	amt = amt / 100
@@ -131,6 +133,30 @@ func (tx *TX) DoesTXHaveWeekday(weekday int) bool {
 		}
 	}
 	return false
+}
+
+// MarkupText will italicize and gray-out the provide input string value if
+// the value of tx.Active is false. Otherwise, it will simply return the input
+// string value unaltered. In the future this may change, as this function may
+// handle multiple different situations, depending on the state of tx.
+func (tx *TX) MarkupText(input string) string {
+	input = strings.ReplaceAll(input, "&", "&amp;")
+	if !tx.Active {
+		return fmt.Sprintf(`<i><span foreground="#AAAAAA">%v</span></i>`, input)
+	}
+	return fmt.Sprintf("%v", input)
+}
+
+// preserves the color of active currency values but italicizes values
+// according to enabled/disabled
+// TODO: refactor/improve this, it doesn't really work as intended but I'm
+// lazy at the moment
+func (tx *TX) MarkupCurrency(input string) string {
+	input = strings.ReplaceAll(input, "&", "&amp;")
+	if !tx.Active {
+		return fmt.Sprintf(`<i><span foreground="#CCCCCC">%v</span></i>`, input)
+	}
+	return fmt.Sprintf("%v", input)
 }
 
 func ToggleDayFromWeekdays(weekdays []int, weekday int) []int {
@@ -632,28 +658,4 @@ func MarkupColorSequence(input []string) string {
 		result.WriteString(fmt.Sprintf(`<u><span foreground="%v">%v</span></u>; `, c.ResultsTXNameColorSequences[colorSequenceIndex], name))
 	}
 	return result.String()
-}
-
-// MarkupText will italicize and gray-out the provide input string value if
-// the value of tx.Active is false. Otherwise, it will simply return the input
-// string value unaltered. In the future this may change, as this function may
-// handle multiple different situations, depending on the state of tx.
-func (tx *TX) MarkupText(input string) string {
-	input = strings.ReplaceAll(input, "&", "&amp;")
-	if !tx.Active {
-		return fmt.Sprintf(`<i><span foreground="#AAAAAA">%v</span></i>`, input)
-	}
-	return fmt.Sprintf("%v", input)
-}
-
-// preserves the color of active currency values but italicizes values
-// according to enabled/disabled
-// TODO: refactor/improve this, it doesn't really work as intended but I'm
-// lazy at the moment
-func (tx *TX) MarkupCurrency(input string) string {
-	input = strings.ReplaceAll(input, "&", "&amp;")
-	if !tx.Active {
-		return fmt.Sprintf(`<i><span foreground="#CCCCCC">%v</span></i>`, input)
-	}
-	return fmt.Sprintf("%v", input)
 }
