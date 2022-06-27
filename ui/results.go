@@ -12,26 +12,6 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-// https://github.com/gotk3/gotk3-examples/blob/master/gtk-examples/treeview/treeview.go
-func GetResultsAsTreeView(results *[]lib.Result) (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
-	treeView, listStore, err := setupTreeView()
-	if err != nil {
-		return tv, ls, fmt.Errorf("failed to set up tree view: %v", err.Error())
-	}
-
-	// add rows to the tree's list store
-	for _, result := range *results {
-		err := addRow(listStore, &result)
-		if err != nil {
-			return tv, ls, fmt.Errorf("failed to add row: %v", err.Error())
-		}
-	}
-
-	treeView.SetRubberBanding(true)
-
-	return treeView, listStore, nil
-}
-
 func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListStore, txs *[]lib.TX, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
 	cellRenderer, err := gtk.CellRendererToggleNew()
 	if err != nil {
@@ -50,8 +30,8 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 		}
 
 		// TODO: refactor into consts
-		if lib.IsWeekday(configColumns[id]) {
-			weekday := lib.WeekdayIndex[configColumns[id]]
+		if lib.IsWeekday(c.ConfigColumns[id]) {
+			weekday := lib.WeekdayIndex[c.ConfigColumns[id]]
 			(*txs)[i].Weekdays = lib.ToggleDayFromWeekdays((*txs)[i].Weekdays, weekday)
 
 			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
@@ -71,7 +51,7 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 			if err != nil {
 				log.Printf("failed to sync list store: %v", err.Error())
 			}
-		} else if configColumns[id] == ColumnActive {
+		} else if c.ConfigColumns[id] == c.ColumnActive {
 			(*txs)[i].Active = !(*txs)[i].Active
 			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 				if searchPath.String() == path {
@@ -171,6 +151,26 @@ func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 	}
 
 	return nil
+}
+
+// https://github.com/gotk3/gotk3-examples/blob/master/gtk-examples/treeview/treeview.go
+func GetResultsAsTreeView(results *[]lib.Result) (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
+	treeView, listStore, err := setupTreeView()
+	if err != nil {
+		return tv, ls, fmt.Errorf("failed to set up tree view: %v", err.Error())
+	}
+
+	// add rows to the tree's list store
+	for _, result := range *results {
+		err := addRow(listStore, &result)
+		if err != nil {
+			return tv, ls, fmt.Errorf("failed to add row: %v", err.Error())
+		}
+	}
+
+	treeView.SetRubberBanding(true)
+
+	return treeView, listStore, nil
 }
 
 func GenerateResultsTab(txs *[]lib.TX, results []lib.Result) (sw *gtk.ScrolledWindow, tabLabel *gtk.Label, err error) {

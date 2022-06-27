@@ -606,7 +606,7 @@ func SaveResultsCSV(file string, results *[]Result) (err error) {
 	return nil
 }
 
-// TODO: move to lib
+// TODO: refactor w/ constants for the color hex code values
 func CurrencyMarkup(input int) string {
 	currency := FormatAsCurrency(input)
 	if input == 0 {
@@ -632,4 +632,28 @@ func MarkupColorSequence(input []string) string {
 		result.WriteString(fmt.Sprintf(`<u><span foreground="%v">%v</span></u>; `, c.ResultsTXNameColorSequences[colorSequenceIndex], name))
 	}
 	return result.String()
+}
+
+// MarkupText will italicize and gray-out the provide input string value if
+// the value of tx.Active is false. Otherwise, it will simply return the input
+// string value unaltered. In the future this may change, as this function may
+// handle multiple different situations, depending on the state of tx.
+func (tx *TX) MarkupText(input string) string {
+	input = strings.ReplaceAll(input, "&", "&amp;")
+	if !tx.Active {
+		return fmt.Sprintf(`<i><span foreground="#AAAAAA">%v</span></i>`, input)
+	}
+	return fmt.Sprintf("%v", input)
+}
+
+// preserves the color of active currency values but italicizes values
+// according to enabled/disabled
+// TODO: refactor/improve this, it doesn't really work as intended but I'm
+// lazy at the moment
+func (tx *TX) MarkupCurrency(input string) string {
+	input = strings.ReplaceAll(input, "&", "&amp;")
+	if !tx.Active {
+		return fmt.Sprintf(`<i><span foreground="#CCCCCC">%v</span></i>`, input)
+	}
+	return fmt.Sprintf("%v", input)
 }

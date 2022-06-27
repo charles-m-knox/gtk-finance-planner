@@ -1,5 +1,7 @@
 package constants
 
+import "github.com/gotk3/gotk3/glib"
+
 const (
 	Day     = "Day"
 	Weekly  = "Weekly"
@@ -72,3 +74,115 @@ var ResultsColumnsIndexes = []int{
 	ColumnDiffFromStartIndex,
 	ColumnDayTransactionNamesIndex,
 }
+
+// values for the config page
+
+const (
+	ColumnOrder     = "Order"
+	ColumnAmount    = "Amount"    // int in cents; 500 = $5.00
+	ColumnActive    = "Active"    // bool true/false
+	ColumnName      = "Name"      // editable string
+	ColumnFrequency = "Frequency" // dropdown, monthly/daily/weekly/yearly
+	ColumnInterval  = "Interval"  // integer, occurs every x frequency
+	ColumnMonday    = "Monday"    // bool
+	ColumnTuesday   = "Tuesday"   // bool
+	ColumnWednesday = "Wednesday" // bool
+	ColumnThursday  = "Thursday"  // bool
+	ColumnFriday    = "Friday"    // bool
+	ColumnSaturday  = "Saturday"  // bool
+	ColumnSunday    = "Sunday"    // bool
+	ColumnStarts    = "Starts"    // string
+	ColumnEnds      = "Ends"      // string
+	ColumnNote      = "Note"      // editable string
+
+	WeekdayMonday    = "Monday"
+	WeekdayTuesday   = "Tuesday"
+	WeekdayWednesday = "Wednesday"
+	WeekdayThursday  = "Thursday"
+	WeekdayFriday    = "Friday"
+	WeekdaySaturday  = "Saturday"
+	WeekdaySunday    = "Sunday"
+)
+
+var ConfigColumns = []string{
+	ColumnOrder,     // int
+	ColumnAmount,    // int in cents; 500 = $5.00
+	ColumnActive,    // bool true/false
+	ColumnName,      // editable string
+	ColumnFrequency, // dropdown, monthly/daily/weekly/yearly
+	ColumnInterval,  // integer, occurs every x frequency
+	ColumnMonday,    // bool
+	ColumnTuesday,   // bool
+	ColumnWednesday, // bool
+	ColumnThursday,  // bool
+	ColumnFriday,    // bool
+	ColumnSaturday,  // bool
+	ColumnSunday,    // bool
+	ColumnStarts,    // string
+	ColumnEnds,      // string
+	ColumnNote,      // editable string
+}
+
+var Weekdays = []string{
+	WeekdayMonday,
+	WeekdayTuesday,
+	WeekdayWednesday,
+	WeekdayThursday,
+	WeekdayFriday,
+	WeekdaySaturday,
+	WeekdaySunday,
+}
+
+const (
+	WeekdayMondayInt = iota
+	WeekdayTuesdayInt
+	WeekdayWednesdayInt
+	WeekdayThursdayInt
+	WeekdayFridayInt
+	WeekdaySaturdayInt
+	WeekdaySundayInt
+)
+
+const (
+	COLUMN_ORDER     = iota // int
+	COLUMN_AMOUNT           // int in cents; 500 = $5.00
+	COLUMN_ACTIVE           // bool true/false
+	COLUMN_NAME             // editable string
+	COLUMN_FREQUENCY        // dropdown, monthly/daily/weekly/yearly
+	COLUMN_INTERVAL         // integer, occurs every x frequency
+	COLUMN_MONDAY           // bool
+	COLUMN_TUESDAY          // bool
+	COLUMN_WEDNESDAY        // bool
+	COLUMN_THURSDAY         // bool
+	COLUMN_FRIDAY           // bool
+	COLUMN_SATURDAY         // bool
+	COLUMN_SUNDAY           // bool
+	COLUMN_STARTS           // string
+	COLUMN_ENDS             // string
+	COLUMN_NOTE             // editable string
+)
+
+var ConfigColumnTypes = []glib.Type{
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_BOOLEAN,
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
+}
+
+const (
+	None = "none"
+	Desc = "Desc"
+	Asc  = "Asc"
+)
