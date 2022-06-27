@@ -1,25 +1,23 @@
 package lib
 
 import (
+	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
+	"os/user"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	totp "github.com/pquerna/otp/totp"
 	"github.com/teambition/rrule-go"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
-)
-
-const (
-	Day     = "Day"
-	Weekly  = "Weekly"
-	Monthly = "Monthly"
-	Yearly  = "Yearly"
 )
 
 var WeekdayIndex = map[string]int{
@@ -32,6 +30,7 @@ var WeekdayIndex = map[string]int{
 	"Sunday":    6,
 }
 
+// IsWeekday determines if a provided string corresponds to a weekday.
 func IsWeekday(weekday string) bool {
 	if weekday == "Monday" {
 		return true
@@ -57,11 +56,17 @@ func IsWeekday(weekday string) bool {
 	return false
 }
 
+// FormatAsDate takes an input time and formats it using the standard
+// representation of a date in this application: "YYYY-MM-DD" (may not have
+// padded zeroes).
 func FormatAsDate(t time.Time) string {
 	year, month, day := t.Date()
 	return fmt.Sprintf("%02d/%02d/%d", month, day, year)
 }
 
+// FormatAsCurrency converts an integer to a USD-formatted string. Input
+// is assumed to be based in pennies, i.e., hundredths of a dollar - 100 would
+// return "$1.00".
 func FormatAsCurrency(a int) string {
 	// convert to float and dump as currency string
 	//  TODO: print the integer and clip the last two digits instead of
@@ -115,35 +120,15 @@ type Result struct { // csv/table output row
 	DayTransactionNamesSlice []string
 }
 
-type User struct {
-	ID       string // uuid
-	Password string
-	TOTP     string
-}
-
-func AddDayToWeekdays(weekdays []int, weekday int) []int {
-	if weekday < 0 || weekday > 6 {
-		return weekdays
-	}
-	for i := range weekdays {
-		if weekdays[i] == weekday {
-			return weekdays // do nothing
+// DoesTXHaveWeekday checks if a recurring transaction definition contains
+// the specified weekday as an rrule recurrence day of the week.
+func (tx *TX) DoesTXHaveWeekday(weekday int) bool {
+	for _, d := range tx.Weekdays {
+		if weekday == d {
+			return true
 		}
 	}
-	weekdays = append(weekdays, weekday)
-	return weekdays
-}
-
-func RemoveDayFromWeekdays(weekdays []int, weekday int) []int {
-	if weekday < 0 || weekday > 6 {
-		return weekdays
-	}
-	for i := range weekdays {
-		if weekdays[i] != weekday {
-			weekdays = append(weekdays, weekday)
-		}
-	}
-	return weekdays
+	return false
 }
 
 func ToggleDayFromWeekdays(weekdays []int, weekday int) []int {
@@ -164,24 +149,6 @@ func ToggleDayFromWeekdays(weekdays []int, weekday int) []int {
 	}
 	sort.Ints(returnValue)
 	return returnValue
-}
-
-func GetTOTP(userID string, issuer string) (string, string, error) {
-	key, err := totp.Generate(
-		totp.GenerateOpts{
-			Issuer: issuer,
-			AccountName: fmt.Sprintf(
-				"%v - %v",
-				userID,
-				issuer,
-			),
-		},
-	)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to gen totp: %v", err.Error())
-	}
-
-	return key.Secret(), key.String(), nil
 }
 
 func GetResults(tx []TX, startDate time.Time, endDate time.Time, startBalance int) ([]Result, error) {
@@ -343,8 +310,6 @@ func GetResults(tx []TX, startDate time.Time, endDate time.Time, startBalance in
 			return results, fmt.Errorf("there was a different number of transaction amounts versus transaction names for date %v", resultsDateInt)
 		}
 
-		// log.Printf("preCalculatedDates[results[i].Date]=%v, len=%v", preCalculatedDates[resultsDateInt], len(preCalculatedDates))
-
 		for j := range preCalculatedDates[resultsDateInt].DayTransactionAmounts {
 			// determine if the amount is an expense or income
 			amt := preCalculatedDates[resultsDateInt].DayTransactionAmounts[j]
@@ -370,19 +335,19 @@ func GetResults(tx []TX, startDate time.Time, endDate time.Time, startBalance in
 			results[i].DayNet += amt
 			diff += amt
 			currentBalance += amt
-			// log.Printf("day %v: amt=%v, date=%v", i, amt, resultsDateInt)
 		}
 
 		results[i].Balance = currentBalance
 		results[i].CumulativeIncome = cumulativeIncome
 		results[i].CumulativeExpenses = cumulativeExpenses
 		results[i].DiffFromStart = diff
-		// log.Printf("results[%v]=%v", i, results[i])
 	}
 
 	return results, nil
 }
 
+// GetNowDateString returns a string corresponding to the current YYYY-MM-DD
+// value, but does not necessarily include 0-padded values
 func GetNowDateString() string {
 	now := time.Now()
 	return fmt.Sprintf(
@@ -393,6 +358,9 @@ func GetNowDateString() string {
 	)
 }
 
+// GetDefaultEndDateString returns a string corresponding to the current YYYY-MM-DD
+// value plus 1 year in the future, but does not necessarily include 0-padded
+// values
 func GetDefaultEndDateString() string {
 	now := time.Now()
 	return fmt.Sprintf(
@@ -403,6 +371,9 @@ func GetDefaultEndDateString() string {
 	)
 }
 
+// ParseYearMonthDateString takes an input value such as 2020-01-01 and returns
+// three integer values - year, month, day. Returns 0, 0, 0 if invalid input
+// is received.
 func ParseYearMonthDateString(input string) (int, int, int) {
 	vals := strings.Split(input, "-")
 	if len(vals) != 3 {
@@ -414,6 +385,11 @@ func ParseYearMonthDateString(input string) (int, int, int) {
 	return int(yr), int(mo), int(day)
 }
 
+// ParseDollarAmount takes an input currency-formatted string, such as $100.00,
+// and returns an integer corresponding to the underlying value, such as 10000.
+// Generally in this application, values are assumed to be negative (i.e.
+// recurring bills), so if assumePositive is set to true, the returned value
+// will be positive, but otherwise it will default to negative.
 func ParseDollarAmount(input string, assumePositive bool) int64 {
 	cents := int64(0)
 	whole := int64(0)
@@ -425,8 +401,9 @@ func ParseDollarAmount(input string, assumePositive bool) int64 {
 		multiplier = int64(1)
 	}
 	// in the event that the user is entering the starting balance,
-	// they may want to set a negative starting balance. So basically just reverse
-	// from above logic, since the user will have to be typing a negative sign in front.
+	// they may want to set a negative starting balance. So basically just the
+	// reverse from above logic, since the user will have to be typing a
+	// negative sign in front.
 	if assumePositive && (strings.Index(input, "$-") == 0 || strings.Index(input, "-") == 0) {
 		multiplier = int64(-1)
 	}
@@ -445,17 +422,6 @@ func ParseDollarAmount(input string, assumePositive bool) int64 {
 		}
 	}
 	whole, _ = strconv.ParseInt(ss[0], 10, 64)
-	// pi := strings.Index(input, ".")
-	// if pi != -1 {
-	// 	// split and treat the values accordingly
-	// }
-
-	// r := regexp.MustCompile(`[^-\d.]*`)
-	// s := r.ReplaceAllString(input, "")
-	log.Println("ParseDollarAmount", r, s, input)
-	// i, _ := strconv.ParseInt(s, 10, 64)
-	// padded := fmt.Sprintf("%6d", i)
-	// j, _ := strconv.ParseInt(padded, 10, 64)
 
 	// account for the negative case when re-combining the two values
 	if whole < 0 {
@@ -464,10 +430,17 @@ func ParseDollarAmount(input string, assumePositive bool) int64 {
 	return multiplier * (whole*100 + cents)
 }
 
+// RemoveTXAtIndex is a quick helper function to remove a transaction from
+// a slice. There are more generic ways to do this, and it's fairly trivial,
+// but it's nice to have a dedicated helper function for it.
 func RemoveTXAtIndex(txs []TX, i int) []TX {
 	return append(txs[:i], txs[i+1:]...)
 }
 
+// GenerateResultsFromDateStrings takes an input start and end date (either can
+// be the default '0-0-0' values, in which case it uses today for the start,
+// and a year from now for the end), and calculates all of the calculable
+// transactions for the provided range.
 func GenerateResultsFromDateStrings(txs *[]TX, bal int, startDt string, endDt string) ([]Result, error) {
 	now := time.Now()
 	stYr, stMo, stDay := ParseYearMonthDateString(startDt)
@@ -495,12 +468,11 @@ func GenerateResultsFromDateStrings(txs *[]TX, bal int, startDt string, endDt st
 	return res, nil
 }
 
+// GetStats spits out some quick calculations about the provided set of results.
+// Calculations include, for example, yearly+monthly+daily income/expenses, as
+// well as some other things. Users may want to copy this information to the
+// clipboard.
 func GetStats(results []Result) (string, error) {
-	// daily average spend/income
-	// monthly (30 day) average spend/income
-	// yearly (365 day) average spend/income
-	// later on:
-	// amount spent in each month of the year
 	count := len(results)
 	i := 365
 	if count > i {
@@ -535,5 +507,99 @@ func GetStats(results []Result) (string, error) {
 
 		return b.String(), nil
 	}
-	return "", fmt.Errorf("You need at least one year between your start date and end date to get statistics about your finances.")
+	return "", fmt.Errorf(
+		"You need at least one year between your start date and end date to get statistics about your finances.",
+	)
+}
+
+func GetResultsCSVString(results *[]Result) string {
+	b := new(strings.Builder)
+	w := csv.NewWriter(b)
+	for _, r := range *results {
+		var record []string
+		record = append(record, FormatAsDate(r.Date))
+		record = append(record, FormatAsCurrency(r.Balance))
+		record = append(record, FormatAsCurrency(r.CumulativeIncome))
+		record = append(record, FormatAsCurrency(r.CumulativeExpenses))
+		record = append(record, FormatAsCurrency(r.DayExpenses))
+		record = append(record, FormatAsCurrency(r.DayIncome))
+		record = append(record, FormatAsCurrency(r.DayNet))
+		record = append(record, FormatAsCurrency(r.DiffFromStart))
+		record = append(record, r.DayTransactionNames)
+		_ = w.Write(record)
+	}
+	w.Flush()
+	return b.String()
+}
+
+func GetUser() *user.User {
+	user, err := user.Current()
+	if err != nil {
+		log.Printf("failed to get the user's home directory: %v", err.Error())
+	}
+	return user
+}
+
+func LoadConfig(file string) (txs []TX, err error) {
+	txJSON, err := ioutil.ReadFile(file)
+	if err != nil {
+		return txs, fmt.Errorf("failed to read config json: %v", err.Error())
+	}
+
+	err = json.Unmarshal(txJSON, &txs)
+	if err != nil {
+		return txs, fmt.Errorf("failed to unmarshal config json: %v", err.Error())
+	}
+
+	// apply an automatic order to each of the transactions, starting from 1,
+	// since the 0-value is default when undefined
+	for i := range txs {
+		if txs[i].Order == 0 {
+			txs[i].Order = i + 1
+		}
+	}
+
+	return
+}
+
+func SaveConfig(file string, txs []TX) (err error) {
+	txJSON, _ := json.Marshal(txs)
+	if err != nil {
+		return fmt.Errorf("failed to parse tx json: %v", err.Error())
+	}
+	dir := path.Dir(file)
+	log.Println(dir)
+	err = os.MkdirAll(dir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create parent directory \"%v\" for saving tx json: %v", dir, err.Error())
+	}
+	err = ioutil.WriteFile(file, txJSON, os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("failed to write json to file %v: %v", file, err.Error())
+	}
+	return nil
+}
+
+func SaveResultsCSV(file string, results *[]Result) (err error) {
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	w := csv.NewWriter(f)
+	for _, r := range *results {
+		var record []string
+		record = append(record, FormatAsDate(r.Date))
+		record = append(record, FormatAsCurrency(r.Balance))
+		record = append(record, FormatAsCurrency(r.CumulativeIncome))
+		record = append(record, FormatAsCurrency(r.CumulativeExpenses))
+		record = append(record, FormatAsCurrency(r.DayExpenses))
+		record = append(record, FormatAsCurrency(r.DayIncome))
+		record = append(record, FormatAsCurrency(r.DayNet))
+		record = append(record, FormatAsCurrency(r.DiffFromStart))
+		record = append(record, r.DayTransactionNames)
+		_ = w.Write(record)
+	}
+	w.Flush()
+	return nil
 }

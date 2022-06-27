@@ -1,18 +1,13 @@
 package main
 
 import (
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/user"
-	"path"
 	"strconv"
-	"strings"
 	"time"
 
+	c "finance-planner/constants"
 	"finance-planner/lib"
 	"finance-planner/ui"
 
@@ -28,24 +23,17 @@ import (
 // https://golangdocs.com/aes-encryption-decryption-in-golang
 
 const (
-	DEFAULT_FILENAME = "conf.json"
-	CONFIG_PATH      = ".config/finance-planner"
-)
-
-const (
 	TAB_CONFIG = iota
 	TAB_RESULTS
 )
 
-func getUser() *user.User {
-	user, err := user.Current()
-	if err != nil {
-		log.Printf("failed to get the user's home directory: %v", err.Error())
-	}
-	return user
-}
+var (
+	HideInactive    = false
+	HideInactivePtr = &HideInactive
+)
 
 func main() {
+	// TODO: change appID
 	const appID = "com.charlesmknox.finance-planner"
 	application, err := gtk.ApplicationNew(appID, glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
@@ -53,11 +41,16 @@ func main() {
 	}
 	// gtk.Init(nil)
 
-	currentUser := getUser()
+	currentUser := lib.GetUser()
 	homeDir := currentUser.HomeDir
-	defaultConfigFile := DEFAULT_FILENAME
+	defaultConfigFile := c.DefaultConfFileName
 	if homeDir != "" {
-		defaultConfigFile = fmt.Sprintf("%v/%v/%v", homeDir, CONFIG_PATH, DEFAULT_FILENAME)
+		defaultConfigFile = fmt.Sprintf(
+			"%v/%v/%v",
+			homeDir,
+			c.DefaultConfFilePath,
+			c.DefaultConfFileName,
+		)
 	}
 
 	application.Connect("activate", func() {
@@ -81,91 +74,6 @@ func main() {
 	os.Exit(application.Run(os.Args))
 }
 
-func loadConfig(file string) (txs []lib.TX, err error) {
-	// load user data
-	txJSON, err := ioutil.ReadFile(file)
-	if err != nil {
-		log.Printf("failed to read user json: %v", err.Error())
-	}
-
-	err = json.Unmarshal(txJSON, &txs)
-	if err != nil {
-		log.Printf("failed to unmarshal json: %v", err.Error())
-	}
-
-	// apply an automatic order to each of the transactions, starting from 1,
-	// since the 0-value is default when undefined
-	for i := range txs {
-		if txs[i].Order == 0 {
-			txs[i].Order = i + 1
-		}
-	}
-
-	return
-}
-
-func saveConfig(file string, txs []lib.TX) (err error) {
-	txJSON, _ := json.Marshal(txs)
-	if err != nil {
-		return fmt.Errorf("failed to parse tx json: %v", err.Error())
-	}
-	dir := path.Dir(file)
-	log.Println(dir)
-	err = os.MkdirAll(dir, 0o755)
-	if err != nil {
-		return fmt.Errorf("failed to create parent directory \"%v\" for saving tx json: %v", dir, err.Error())
-	}
-	err = ioutil.WriteFile(file, txJSON, os.ModePerm)
-	if err != nil {
-		return fmt.Errorf("failed to write json to file %v: %v", file, err.Error())
-	}
-	return nil
-}
-
-func getResultsCSVString(results *[]lib.Result) string {
-	b := new(strings.Builder)
-	w := csv.NewWriter(b)
-	for _, r := range *results {
-		var record []string
-		record = append(record, lib.FormatAsDate(r.Date))
-		record = append(record, lib.FormatAsCurrency(r.Balance))
-		record = append(record, lib.FormatAsCurrency(r.CumulativeIncome))
-		record = append(record, lib.FormatAsCurrency(r.CumulativeExpenses))
-		record = append(record, lib.FormatAsCurrency(r.DayExpenses))
-		record = append(record, lib.FormatAsCurrency(r.DayIncome))
-		record = append(record, lib.FormatAsCurrency(r.DayNet))
-		record = append(record, lib.FormatAsCurrency(r.DiffFromStart))
-		record = append(record, r.DayTransactionNames)
-		_ = w.Write(record)
-	}
-	w.Flush()
-	return b.String()
-}
-
-func saveResultsCSV(file string, results *[]lib.Result) (err error) {
-	f, err := os.Create(file)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	w := csv.NewWriter(f)
-	for _, r := range *results {
-		var record []string
-		record = append(record, lib.FormatAsDate(r.Date))
-		record = append(record, lib.FormatAsCurrency(r.Balance))
-		record = append(record, lib.FormatAsCurrency(r.CumulativeIncome))
-		record = append(record, lib.FormatAsCurrency(r.CumulativeExpenses))
-		record = append(record, lib.FormatAsCurrency(r.DayExpenses))
-		record = append(record, lib.FormatAsCurrency(r.DayIncome))
-		record = append(record, lib.FormatAsCurrency(r.DayNet))
-		record = append(record, lib.FormatAsCurrency(r.DiffFromStart))
-		record = append(record, r.DayTransactionNames)
-		_ = w.Write(record)
-	}
-	w.Flush()
-	return nil
-}
-
 func primary(application *gtk.Application, filename string) *gtk.ApplicationWindow {
 	// for go routine access
 	var (
@@ -181,17 +89,6 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		latestResults             []lib.Result
 	)
 
-	// start up the api server
-	// r := gin.Default()
-	// use this example for loading html templates
-	// https://github.com/gin-gonic/examples/blob/master/template/main.go
-	// r.Delims("{{", "}}")
-	// r.SetFuncMap(template.FuncMap{
-	// 	"formatAsDate":     formatAsDate,
-	// 	"formatAsCurrency": formatAsCurrency,
-	// })
-	// r.LoadHTMLFiles("./templates/index.html")
-
 	// start the gtk window - not needed since we're bootstrapping the application
 	// differently
 	// gtk.Init(nil)
@@ -201,7 +98,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	if err != nil {
 		log.Fatal("unable to create window:", err)
 	}
-	rootBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, ui.Spacer)
+	rootBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, c.UISpacer)
 	if err != nil {
 		log.Fatal("unable to create root box:", err)
 	}
@@ -210,7 +107,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	// TODO: this can be moved to elsewhere
 	if openFileName != "" {
-		userTX, err = loadConfig(openFileName)
+		userTX, err = lib.LoadConfig(openFileName)
 		if err != nil {
 			m := fmt.Sprintf(
 				"Config does not exist at %v. Would you like to create a new one there now?",
@@ -220,7 +117,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			log.Println(m)
 			resp := d.Run()
 			if resp == gtk.RESPONSE_YES {
-				err := saveConfig(openFileName, userTX)
+				err := lib.SaveConfig(openFileName, userTX)
 				if err != nil {
 					m := fmt.Sprintf("Failed to save config upon window load - will proceed with a blank config. Here's the error: %v", err.Error())
 					di := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
@@ -343,7 +240,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				// GetFilename includes the full path and file name
 				openFileName = dialog.FileChooser.GetFilename()
 				// write the config to the target file path
-				err := saveConfig(openFileName, userTX)
+				err := lib.SaveConfig(openFileName, userTX)
 				if err != nil {
 					m := fmt.Sprintf("Failed to save config to file \"%v\": %v", openFileName, err.Error())
 					d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
@@ -366,7 +263,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	saveOpenConfFn := func() {
 		// write the config to the target file path
-		err := saveConfig(openFileName, userTX)
+		err := lib.SaveConfig(openFileName, userTX)
 		if err != nil {
 			m := fmt.Sprintf("Failed to save config to file \"%v\": %v", openFileName, err.Error())
 			d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
@@ -405,7 +302,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				// GetFilename includes the full path and file name
 				f := dialog.FileChooser.GetFilename()
 				// write the config to the target file path
-				err := saveResultsCSV(f, &latestResults)
+				err := lib.SaveResultsCSV(f, &latestResults)
 				if err != nil {
 					m := fmt.Sprintf("Failed to save results as CSV to file \"%v\": %v", f, err.Error())
 					d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
@@ -427,7 +324,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	win.AddAction(saveResultsAction)
 
 	copyResultsFn := func() {
-		r := getResultsCSVString(&latestResults)
+		r := lib.GetResultsCSVString(&latestResults)
 		clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
 		if err != nil {
 			log.Print("failed to get clipboard", err.Error())
@@ -459,10 +356,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	if err != nil {
 		log.Fatal("Unable to create button:", err)
 	}
-	mainBtn.SetMarginTop(ui.Spacer)
-	mainBtn.SetMarginBottom(ui.Spacer)
-	mainBtn.SetMarginStart(ui.Spacer)
-	mainBtn.SetMarginEnd(ui.Spacer)
+	mainBtn.SetMarginTop(c.UISpacer)
+	mainBtn.SetMarginBottom(c.UISpacer)
+	mainBtn.SetMarginStart(c.UISpacer)
+	mainBtn.SetMarginEnd(c.UISpacer)
 
 	// spnBtn, err := gtk.SpinButtonNewWithRange(0.0, 1.0, 0.001)
 	// if err != nil {
@@ -510,10 +407,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	if err != nil {
 		log.Fatal("Unable to create entry:", err)
 	}
-	startingBalanceInput.SetMarginTop(ui.Spacer)
-	startingBalanceInput.SetMarginBottom(ui.Spacer)
-	startingBalanceInput.SetMarginStart(ui.Spacer)
-	startingBalanceInput.SetMarginEnd(ui.Spacer)
+	startingBalanceInput.SetMarginTop(c.UISpacer)
+	startingBalanceInput.SetMarginBottom(c.UISpacer)
+	startingBalanceInput.SetMarginStart(c.UISpacer)
+	startingBalanceInput.SetMarginEnd(c.UISpacer)
 	startingBalanceInput.SetPlaceholderText("$500.00 - Enter a balance to start with.")
 	updateStartingBalance := func() {
 		s, _ := startingBalanceInput.GetText()
@@ -532,10 +429,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	if err != nil {
 		log.Fatal("Unable to create entry:", err)
 	}
-	stDateInput.SetMarginTop(ui.Spacer)
-	stDateInput.SetMarginBottom(ui.Spacer)
-	stDateInput.SetMarginStart(ui.Spacer)
-	stDateInput.SetMarginEnd(ui.Spacer)
+	stDateInput.SetMarginTop(c.UISpacer)
+	stDateInput.SetMarginBottom(c.UISpacer)
+	stDateInput.SetMarginStart(c.UISpacer)
+	stDateInput.SetMarginEnd(c.UISpacer)
 	stDateInput.SetPlaceholderText(startDate)
 	stDateInputUpdate := func() {
 		s, _ := stDateInput.GetText()
@@ -555,10 +452,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	if err != nil {
 		log.Fatal("Unable to create entry:", err)
 	}
-	endDateInput.SetMarginTop(ui.Spacer)
-	endDateInput.SetMarginBottom(ui.Spacer)
-	endDateInput.SetMarginStart(ui.Spacer)
-	endDateInput.SetMarginEnd(ui.Spacer)
+	endDateInput.SetMarginTop(c.UISpacer)
+	endDateInput.SetMarginBottom(c.UISpacer)
+	endDateInput.SetMarginStart(c.UISpacer)
+	endDateInput.SetMarginEnd(c.UISpacer)
 	endDateInput.SetPlaceholderText(endDate)
 	endDateInputUpdate := func() {
 		s, _ := endDateInput.GetText()
@@ -670,10 +567,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		configSw.Add(configTreeView)
 		configSw.SetHExpand(true)
 		configSw.SetVExpand(true)
-		configSw.SetMarginTop(ui.Spacer)
-		configSw.SetMarginBottom(ui.Spacer)
-		configSw.SetMarginStart(ui.Spacer)
-		configSw.SetMarginEnd(ui.Spacer)
+		configSw.SetMarginTop(c.UISpacer)
+		configSw.SetMarginBottom(c.UISpacer)
+		configSw.SetMarginStart(c.UISpacer)
+		configSw.SetMarginEnd(c.UISpacer)
 
 		return configSw, configTab
 	}
@@ -704,7 +601,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 					primary(application, openFileName).ShowAll()
 					return
 				} else {
-					userTX, err = loadConfig(openFileName)
+					userTX, err = lib.LoadConfig(openFileName)
 					if err != nil {
 						m := fmt.Sprintf("Failed to load config \"%v\": %v", openFileName, err.Error())
 						d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
@@ -780,6 +677,17 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		}
 	}
 
+	// initialize some things
+	ui.SetHideInactive(HideInactivePtr)
+
+	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
+		HideInactive = !HideInactive
+		chkBtn.SetActive(HideInactive)
+		updateResults(false)
+		configViewListStore.Clear()
+		ui.SyncListStore(&userTX, configViewListStore)
+	}
+
 	addConfItemHandler := func() {
 		// nb.RemovePage(TAB_CONFIG)
 		userTX = append(userTX, lib.TX{
@@ -825,59 +733,71 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		// selectedConfigItemIndexes = []int{}
 	}
 
+	hideInactiveCheckbox, err := gtk.CheckButtonNewWithMnemonic("Hide inactive")
+	if err != nil {
+		log.Fatal("failed to create 'hide inactive' checkbox:", err)
+	}
+	hideInactiveCheckbox.SetMarginTop(c.UISpacer)
+	hideInactiveCheckbox.SetMarginBottom(c.UISpacer)
+	hideInactiveCheckbox.SetMarginStart(c.UISpacer)
+	hideInactiveCheckbox.SetMarginEnd(c.UISpacer)
+	hideInactiveCheckbox.SetActive(HideInactive)
+
+	hideInactiveCheckbox.Connect("clicked", hideInactiveCheckBoxClickedHandler)
+
 	addConfItemBtn, err := gtk.ButtonNewWithLabel("+")
 	if err != nil {
 		log.Fatal("Unable to create add conf item button:", err)
 	}
-	addConfItemBtn.SetMarginTop(ui.Spacer)
-	addConfItemBtn.SetMarginBottom(ui.Spacer)
-	addConfItemBtn.SetMarginStart(ui.Spacer)
-	addConfItemBtn.SetMarginEnd(ui.Spacer)
+	addConfItemBtn.SetMarginTop(c.UISpacer)
+	addConfItemBtn.SetMarginBottom(c.UISpacer)
+	addConfItemBtn.SetMarginStart(c.UISpacer)
+	addConfItemBtn.SetMarginEnd(c.UISpacer)
 
 	delConfItemBtn, err := gtk.ButtonNewWithLabel("-")
 	if err != nil {
 		log.Fatal("Unable to create add conf item button:", err)
 	}
-	delConfItemBtn.SetMarginTop(ui.Spacer)
-	delConfItemBtn.SetMarginBottom(ui.Spacer)
-	delConfItemBtn.SetMarginStart(ui.Spacer)
-	delConfItemBtn.SetMarginEnd(ui.Spacer)
+	delConfItemBtn.SetMarginTop(c.UISpacer)
+	delConfItemBtn.SetMarginBottom(c.UISpacer)
+	delConfItemBtn.SetMarginStart(c.UISpacer)
+	delConfItemBtn.SetMarginEnd(c.UISpacer)
 
 	cloneConfItemBtn, err := gtk.ButtonNewWithLabel("Clone")
 	if err != nil {
 		log.Fatal("Unable to create clone conf item button:", err)
 	}
-	cloneConfItemBtn.SetMarginTop(ui.Spacer)
-	cloneConfItemBtn.SetMarginBottom(ui.Spacer)
-	cloneConfItemBtn.SetMarginStart(ui.Spacer)
-	cloneConfItemBtn.SetMarginEnd(ui.Spacer)
+	cloneConfItemBtn.SetMarginTop(c.UISpacer)
+	cloneConfItemBtn.SetMarginBottom(c.UISpacer)
+	cloneConfItemBtn.SetMarginStart(c.UISpacer)
+	cloneConfItemBtn.SetMarginEnd(c.UISpacer)
 
 	// saveConfBtn, err := gtk.ButtonNewWithLabel("Save Config")
 	// if err != nil {
 	// 	log.Fatal("Unable to create save conf item button:", err)
 	// }
-	// saveConfBtn.SetMarginTop(ui.Spacer)
-	// saveConfBtn.SetMarginBottom(ui.Spacer)
-	// saveConfBtn.SetMarginStart(ui.Spacer)
-	// saveConfBtn.SetMarginEnd(ui.Spacer)
+	// saveConfBtn.SetMarginTop(c.UISpacer)
+	// saveConfBtn.SetMarginBottom(c.UISpacer)
+	// saveConfBtn.SetMarginStart(c.UISpacer)
+	// saveConfBtn.SetMarginEnd(c.UISpacer)
 
 	// loadConfBtn, err := gtk.ButtonNewWithLabel("Load Config")
 	// if err != nil {
 	// 	log.Fatal("Unable to create load conf item button:", err)
 	// }
-	// loadConfBtn.SetMarginTop(ui.Spacer)
-	// loadConfBtn.SetMarginBottom(ui.Spacer)
-	// loadConfBtn.SetMarginStart(ui.Spacer)
-	// loadConfBtn.SetMarginEnd(ui.Spacer)
+	// loadConfBtn.SetMarginTop(c.UISpacer)
+	// loadConfBtn.SetMarginBottom(c.UISpacer)
+	// loadConfBtn.SetMarginStart(c.UISpacer)
+	// loadConfBtn.SetMarginEnd(c.UISpacer)
 
 	// saveResultsItemBtn, err := gtk.ButtonNewWithLabel("Save Results")
 	// if err != nil {
 	// 	log.Fatal("Unable to create save results item button:", err)
 	// }
-	// saveResultsItemBtn.SetMarginTop(ui.Spacer)
-	// saveResultsItemBtn.SetMarginBottom(ui.Spacer)
-	// saveResultsItemBtn.SetMarginStart(ui.Spacer)
-	// saveResultsItemBtn.SetMarginEnd(ui.Spacer)
+	// saveResultsItemBtn.SetMarginTop(c.UISpacer)
+	// saveResultsItemBtn.SetMarginBottom(c.UISpacer)
+	// saveResultsItemBtn.SetMarginStart(c.UISpacer)
+	// saveResultsItemBtn.SetMarginEnd(c.UISpacer)
 
 	configGrid, err := gtk.GridNew()
 	if err != nil {
@@ -1051,12 +971,13 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	const FULL_GRID_WIDTH = 3
 	grid.Attach(nb, 0, 0, FULL_GRID_WIDTH, 2)
-	grid.Attach(addConfItemBtn, 0, 2, 1, 1)
-	grid.Attach(delConfItemBtn, 1, 2, 1, 1)
-	grid.Attach(cloneConfItemBtn, 2, 2, 1, 1)
-	grid.Attach(startingBalanceInput, 0, 3, 1, 1)
-	grid.Attach(stDateInput, 1, 3, 1, 1)
-	grid.Attach(endDateInput, 2, 3, 1, 1)
+	grid.Attach(hideInactiveCheckbox, 0, 2, 1, 1)
+	grid.Attach(addConfItemBtn, 0, 3, 1, 1)
+	grid.Attach(delConfItemBtn, 1, 3, 1, 1)
+	grid.Attach(cloneConfItemBtn, 2, 3, 1, 1)
+	grid.Attach(startingBalanceInput, 0, 4, 1, 1)
+	grid.Attach(stDateInput, 1, 4, 1, 1)
+	grid.Attach(endDateInput, 2, 4, 1, 1)
 	// grid.Attach(mainBtn, 3, 3, 1, 1)
 	// grid.Attach(saveResultsItemBtn, 4, 3, 1, 1)
 

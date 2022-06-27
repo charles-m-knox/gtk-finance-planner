@@ -28,15 +28,8 @@ const (
 	ColumnSaturday  = "Saturday"  // bool
 	ColumnSunday    = "Sunday"    // bool
 	ColumnStarts    = "Starts"    // string
-	// "StartsDay",   // int
-	// "StartsMonth", // int
-	// "StartsYear",  // int
-	ColumnEnds = "Ends" // string
-	// "EndsDay",     // int
-	// "EndsMonth",   // int
-	// "EndsYear",    // int
-	// "RRule",       // rendered rrule
-	ColumnNote = "Note" // editable string
+	ColumnEnds      = "Ends"      // string
+	ColumnNote      = "Note"      // editable string
 
 	WeekdayMonday    = "Monday"
 	WeekdayTuesday   = "Tuesday"
@@ -62,15 +55,8 @@ var configColumns = []string{
 	ColumnSaturday,  // bool
 	ColumnSunday,    // bool
 	ColumnStarts,    // string
-	// "StartsDay",   // int
-	// "StartsMonth", // int
-	// "StartsYear",  // int
-	ColumnEnds, // string
-	// "EndsDay",     // int
-	// "EndsMonth",   // int
-	// "EndsYear",    // int
-	// "RRule",       // rendered rrule
-	ColumnNote, // editable string
+	ColumnEnds,      // string
+	ColumnNote,      // editable string
 }
 
 var weekdays = []string{
@@ -128,13 +114,6 @@ var configColumnTypes = []glib.Type{
 	glib.TYPE_BOOLEAN,
 	glib.TYPE_STRING,
 	glib.TYPE_STRING,
-	// glib.TYPE_INT,
-	// glib.TYPE_INT,
-	// glib.TYPE_INT,
-	// glib.TYPE_INT,
-	// glib.TYPE_INT,
-	// glib.TYPE_INT,
-	// glib.TYPE_STRING,
 	glib.TYPE_STRING,
 }
 
@@ -144,18 +123,10 @@ const (
 	Asc  = "Asc"
 )
 
-var CurrentColumnSort = None
-
-// ui functions to build out a config tree view
-
-func doesTXHaveWeekday(tx lib.TX, weekday int) bool {
-	for _, d := range tx.Weekdays {
-		if weekday == d {
-			return true
-		}
-	}
-	return false
-}
+var (
+	CurrentColumnSort = None
+	HideInactive      *bool
+)
 
 func markupText(tx *lib.TX, input string) string {
 	input = strings.ReplaceAll(input, "&", "&amp;")
@@ -188,13 +159,13 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 		markupText(tx, tx.Name),
 		markupText(tx, tx.Frequency),
 		markupText(tx, fmt.Sprint(tx.Interval)),
-		doesTXHaveWeekday(*tx, WeekdayMondayInt),
-		doesTXHaveWeekday(*tx, WeekdayTuesdayInt),
-		doesTXHaveWeekday(*tx, WeekdayWednesdayInt),
-		doesTXHaveWeekday(*tx, WeekdayThursdayInt),
-		doesTXHaveWeekday(*tx, WeekdayFridayInt),
-		doesTXHaveWeekday(*tx, WeekdaySaturdayInt),
-		doesTXHaveWeekday(*tx, WeekdaySundayInt),
+		tx.DoesTXHaveWeekday(WeekdayMondayInt),
+		tx.DoesTXHaveWeekday(WeekdayTuesdayInt),
+		tx.DoesTXHaveWeekday(WeekdayWednesdayInt),
+		tx.DoesTXHaveWeekday(WeekdayThursdayInt),
+		tx.DoesTXHaveWeekday(WeekdayFridayInt),
+		tx.DoesTXHaveWeekday(WeekdaySaturdayInt),
+		tx.DoesTXHaveWeekday(WeekdaySundayInt),
 		markupText(tx, fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay)),
 		markupText(tx, fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay)),
 		// tx.StartsDay,
@@ -988,46 +959,46 @@ func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
 
 			// weekdays
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayMonday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdayMondayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdayMondayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayMonday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdayMondayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdayMondayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayTuesday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdayTuesdayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdayTuesdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayTuesday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdayTuesdayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdayTuesdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayWednesday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdayWednesdayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdayWednesdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayWednesday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdayWednesdayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdayWednesdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayThursday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdayThursdayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdayThursdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayThursday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdayThursdayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdayThursdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayFriday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdayFridayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdayFridayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdayFriday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdayFridayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdayFridayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySaturday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdaySaturdayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdaySaturdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySaturday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdaySaturdayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdaySaturdayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySunday, Asc) {
-				return doesTXHaveWeekday((*txs)[j], WeekdaySundayInt)
+				return (*txs)[j].DoesTXHaveWeekday(WeekdaySundayInt)
 			}
 			if CurrentColumnSort == fmt.Sprintf("%v%v", WeekdaySunday, Desc) {
-				return doesTXHaveWeekday((*txs)[i], WeekdaySundayInt)
+				return (*txs)[i].DoesTXHaveWeekday(WeekdaySundayInt)
 			}
 
 			// other numeric columns
@@ -1090,6 +1061,11 @@ func SyncListStore(txs *[]lib.TX, ls *gtk.ListStore) error {
 
 	// add rows to the tree's list store
 	for _, tx := range *txs {
+		// skip adding this row to the list store if this record is inactive,
+		// and HideInactive is true
+		if !tx.Active && HideInactive != nil && *HideInactive == true {
+			continue
+		}
 		err := addConfigTreeRow(ls, &tx)
 		if err != nil {
 			return fmt.Errorf("failed to sync list store: %v", err.Error())
@@ -1113,4 +1089,8 @@ func GetConfigAsTreeView(txs *[]lib.TX, updateResults func()) (tv *gtk.TreeView,
 	treeView.SetRubberBanding(true)
 
 	return treeView, listStore, nil
+}
+
+func SetHideInactive(value *bool) {
+	HideInactive = value
 }

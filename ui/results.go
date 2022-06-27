@@ -6,64 +6,12 @@ import (
 	"strconv"
 	"strings"
 
+	c "finance-planner/constants"
 	"finance-planner/lib"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
-
-const (
-	Spacer = 10
-)
-
-const (
-	ColumnDate                = "Date"
-	ColumnBalance             = "Balance"
-	ColumnCumulativeIncome    = "CumulativeIncome"
-	ColumnCumulativeExpenses  = "CumulativeExpenses"
-	ColumnDayExpenses         = "DayExpenses"
-	ColumnDayIncome           = "DayIncome"
-	ColumnDayNet              = "DayNet"
-	ColumnDiffFromStart       = "DiffFromStart"
-	ColumnDayTransactionNames = "DayTransactionNames"
-)
-
-const (
-	ColumnDateIndex = iota
-	ColumnBalanceIndex
-	ColumnCumulativeIncomeIndex
-	ColumnCumulativeExpensesIndex
-	ColumnDayExpensesIndex
-	ColumnDayIncomeIndex
-	ColumnDayNetIndex
-	ColumnDiffFromStartIndex
-	ColumnDayTransactionNamesIndex
-)
-
-var columns = []string{
-	ColumnDate,
-	ColumnBalance,
-	ColumnCumulativeIncome,
-	ColumnCumulativeExpenses,
-	ColumnDayExpenses,
-	ColumnDayIncome,
-	ColumnDayNet,
-	ColumnDiffFromStart,
-	ColumnDayTransactionNames,
-}
-
-// make columnsIndexes the same length as the "columns" variable
-var columnsIndexes = []int{
-	ColumnDateIndex,
-	ColumnBalanceIndex,
-	ColumnCumulativeIncomeIndex,
-	ColumnCumulativeExpensesIndex,
-	ColumnDayExpensesIndex,
-	ColumnDayIncomeIndex,
-	ColumnDayNetIndex,
-	ColumnDiffFromStartIndex,
-	ColumnDayTransactionNamesIndex,
-}
 
 // https://github.com/gotk3/gotk3-examples/blob/master/gtk-examples/treeview/treeview.go
 func GetResultsAsTreeView(results *[]lib.Result) (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
@@ -84,8 +32,6 @@ func GetResultsAsTreeView(results *[]lib.Result) (tv *gtk.TreeView, ls *gtk.List
 
 	return treeView, listStore, nil
 }
-
-// tree view code
 
 // Add a column to the tree view (during the initialization of the tree view)
 func createColumn(title string, id int) (tvc *gtk.TreeViewColumn, err error) {
@@ -110,17 +56,13 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create checkbox column renderer: %v", err.Error())
 	}
-	// err = cellRenderer.Set("xalign", 0.0)
-	// if err != nil {
-	// 	return tvc, fmt.Errorf("failed to set xalign prop for checkbox column: %v", err.Error())
-	// }
 	cellRenderer.SetActive(true)
 	cellRenderer.SetRadio(radio)
 	cellRenderer.SetActivatable(true)
 	cellRenderer.SetVisible(true)
-	// cellRenderer.SetSentitive(true)
 	cellRenderer.Connect("toggled", func(a *gtk.CellRendererToggle, path string) {
-		// TODO: using nested structures results in a path that looks like 1:2:5, parse accordingly
+		// TODO: using nested structures results in a path that looks
+		// like 1:2:5 -  parse accordingly
 		i, err := strconv.ParseInt(path, 10, 64)
 		if err != nil {
 			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
@@ -137,7 +79,7 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 						iter,
 						[]int{id},
 						[]interface{}{
-							doesTXHaveWeekday((*txs)[i], weekday),
+							(*txs)[i].DoesTXHaveWeekday(weekday),
 						})
 					return true
 				}
@@ -190,12 +132,12 @@ func setupTreeView() (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
 	tvs, _ := treeView.GetSelection()
 	tvs.SetMode(gtk.SELECTION_MULTIPLE)
 
-	for i := range columns {
-		tvc, err := (createColumn(columns[i], columnsIndexes[i]))
+	for i := range c.ResultsColumns {
+		tvc, err := (createColumn(c.ResultsColumns[i], c.ResultsColumnsIndexes[i]))
 		if err != nil {
 			return tv, ls, fmt.Errorf(
 				"failed to create column %v with id %v: %v",
-				columns[i],
+				c.ResultsColumns[i],
 				i,
 				err.Error(),
 			)
@@ -242,9 +184,9 @@ func currencyMarkup(input int) string {
 
 var colorSequences = []string{
 	"#d9e7fd",
-	"#b4cffb",
-	"#8eb7f9",
-	"#699ff7",
+	// "#b4cffb",
+	// "#8eb7f9",
+	// "#699ff7",
 	"#4387f5",
 }
 
@@ -262,7 +204,7 @@ func markupDayTransactionNames(input []string) string {
 
 // Append a row to the list store for the tree view
 func addRow(listStore *gtk.ListStore, result *lib.Result) error {
-	// Get an iterator for a new row at the end of the list store
+	// get an iterator for a new row at the end of the list store
 	iter := listStore.Append()
 
 	rowData := []interface{}{
@@ -275,11 +217,10 @@ func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 		currencyMarkup(result.DayNet),
 		currencyMarkup(result.DiffFromStart),
 		markupDayTransactionNames(result.DayTransactionNamesSlice),
-		// result.DayTransactionNames,
 	}
 
 	// Set the contents of the list store row that the iterator represents
-	err := listStore.Set(iter, columnsIndexes, rowData)
+	err := listStore.Set(iter, c.ResultsColumnsIndexes, rowData)
 	if err != nil {
 		return fmt.Errorf("unable to add row: %v", err.Error())
 	}
@@ -310,9 +251,9 @@ func GenerateResultsTab(txs *[]lib.TX, results []lib.Result) (sw *gtk.ScrolledWi
 	resultsSw.Add(resultsTreeView)
 	resultsSw.SetHExpand(true)
 	resultsSw.SetVExpand(true)
-	resultsSw.SetMarginTop(Spacer)
-	resultsSw.SetMarginBottom(Spacer)
-	resultsSw.SetMarginStart(Spacer)
-	resultsSw.SetMarginEnd(Spacer)
+	resultsSw.SetMarginTop(c.UISpacer)
+	resultsSw.SetMarginBottom(c.UISpacer)
+	resultsSw.SetMarginStart(c.UISpacer)
+	resultsSw.SetMarginEnd(c.UISpacer)
 	return resultsSw, resultsTabLabel, nil
 }
