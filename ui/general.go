@@ -3,20 +3,93 @@ package ui
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
-func ProcessInitialConfigLoad(
-	win *gtk.ApplicationWindow,
-	header *gtk.HeaderBar,
-	openFileName string,
-	userTX *[]lib.TX,
-) {
+func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListStore, txs *[]lib.TX, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
+	cellRenderer, err := gtk.CellRendererToggleNew()
+	if err != nil {
+		return tvc, fmt.Errorf("unable to create checkbox column renderer: %v", err.Error())
+	}
+	cellRenderer.SetActive(true)
+	cellRenderer.SetRadio(radio)
+	cellRenderer.SetActivatable(true)
+	cellRenderer.SetVisible(true)
+	// TODO: consider refactoring this a little bit
+	cellRenderer.Connect("toggled", func(a *gtk.CellRendererToggle, path string) {
+		// TODO: using nested structures results in a path that looks
+		// like 1:2:5 -  parse accordingly
+		i, err := strconv.ParseInt(path, 10, 64)
+		if err != nil {
+			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
+		}
+
+		if lib.IsWeekday(c.ConfigColumns[id]) {
+			weekday := lib.WeekdayIndex[c.ConfigColumns[id]]
+			(*txs)[i].Weekdays = lib.ToggleDayFromWeekdays((*txs)[i].Weekdays, weekday)
+
+			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+				if searchPath.String() == path {
+					listStore.Set(
+						iter,
+						[]int{id},
+						[]interface{}{
+							(*txs)[i].DoesTXHaveWeekday(weekday),
+						})
+					return true
+				}
+				return false
+			})
+			updateResults()
+			// note: calling SyncListStore is unnecessary here, because the
+			// above listStore.ForEach query actually syncs it for us. Also,
+			// calling SyncListStore actually causes some annoying UI behavior.
+			// err := SyncListStore(txs, listStore)
+			// if err != nil {
+			// 	log.Printf("failed to sync list store: %v", err.Error())
+			// }
+		} else if c.ConfigColumns[id] == c.ColumnActive {
+			(*txs)[i].Active = !(*txs)[i].Active
+			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+				if searchPath.String() == path {
+					listStore.Set(
+						iter,
+						[]int{id},
+						[]interface{}{(*txs)[i].Active})
+					return true
+				}
+				return false
+			})
+			updateResults()
+			// note: calling SyncListStore is unnecessary here, because the
+			// above listStore.ForEach query actually syncs it for us. Also,
+			// calling SyncListStore actually causes some annoying UI behavior.
+			// err := SyncListStore(txs, listStore)
+			// if err != nil {
+			// 	log.Printf("failed to sync list store: %v", err.Error())
+			// }
+		}
+	})
+
+	column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "active", id)
+	if err != nil {
+		return tvc, fmt.Errorf("unable to create checkbox cell column: %v", err.Error())
+	}
+	column.SetResizable(true)
+	column.SetClickable(true)
+	column.SetVisible(true)
+
+	return column, nil
+}
+
+func ProcessInitialConfigLoad(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName string, userTX *[]lib.TX) {
 	if openFileName != "" {
 		var err error
 		*userTX, err = lib.LoadConfig(openFileName)
@@ -157,7 +230,36 @@ func GetMainWindowRootElements(application *gtk.Application) (
 	return win, rootBox, header, mbtn, menu
 }
 
-func SaveConfAsFn(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName *string, userTX *[]lib.TX) {
+// TODO: refactor dialog code
+// TODO: clean up logging
+func SaveOpenConf(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName *string, userTX *[]lib.TX) {
+	// write the config to the target file path
+	err := lib.SaveConfig(*openFileName, *userTX)
+	if err != nil {
+		m := fmt.Sprintf(
+			"Failed to save config to file \"%v\": %v",
+			openFileName,
+			err.Error(),
+		)
+		d := gtk.MessageDialogNew(
+			win,
+			gtk.DIALOG_MODAL,
+			gtk.MESSAGE_ERROR,
+			gtk.BUTTONS_OK,
+			"%s",
+			m,
+		)
+		log.Println(m)
+		d.Run()
+		d.Destroy()
+		return
+	}
+	header.SetSubtitle(*openFileName)
+}
+
+// TODO: refactor dialog code
+// TODO: clean up logging
+func SaveConfAs(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName *string, userTX *[]lib.TX) {
 	p, err := gtk.FileChooserDialogNewWith2Buttons(
 		"Save config",
 		win,
@@ -204,4 +306,139 @@ func SaveConfAsFn(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileNam
 		p.Close()
 	})
 	p.Dialog.ShowAll()
+}
+
+// TODO: refactor dialog code
+// TODO: clean up logging
+func SaveResults(win *gtk.ApplicationWindow, header *gtk.HeaderBar, latestResults *[]lib.Result) {
+	p, err := gtk.FileChooserDialogNewWith2Buttons(
+		"Save config",
+		win,
+		gtk.FILE_CHOOSER_ACTION_SAVE,
+		"_Save",
+		gtk.RESPONSE_OK,
+		"_Cancel",
+		gtk.RESPONSE_CANCEL,
+	)
+	if err != nil {
+		log.Fatal("failed to create save results file picker", err.Error())
+	}
+	p.Connect("close", func() {
+		p.Close()
+	})
+	p.Connect("response", func(dialog *gtk.FileChooserDialog, resp int) {
+		if resp == int(gtk.RESPONSE_OK) {
+			// folder, _ := dialog.FileChooser.GetCurrentFolder()
+			// GetFilename includes the full path and file name
+			f := dialog.FileChooser.GetFilename()
+			// write the config to the target file path
+			err := lib.SaveResultsCSV(f, latestResults)
+			if err != nil {
+				m := fmt.Sprintf(
+					"Failed to save results as CSV to file \"%v\": %v",
+					f,
+					err.Error(),
+				)
+				d := gtk.MessageDialogNew(
+					win,
+					gtk.DIALOG_MODAL,
+					gtk.MESSAGE_ERROR,
+					gtk.BUTTONS_OK,
+					"%s",
+					m,
+				)
+				log.Println(m)
+				d.Run()
+				d.Destroy()
+				return
+			}
+		}
+		p.Close()
+		p.Destroy()
+	})
+	p.Dialog.ShowAll()
+}
+
+// TODO: refactor dialog code
+// TODO: clean up logging
+func CopyResults(win *gtk.ApplicationWindow, header *gtk.HeaderBar, latestResults *[]lib.Result) {
+	r := lib.GetResultsCSVString(latestResults)
+	clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+	if err != nil {
+		log.Print("failed to get clipboard", err.Error())
+	}
+	clipboard.SetText(r)
+	m := fmt.Sprintf(
+		"Success! Copied %v result records to the clipboard.",
+		len(*latestResults),
+	)
+	d := gtk.MessageDialogNew(win,
+		gtk.DIALOG_MODAL,
+		gtk.MESSAGE_INFO,
+		gtk.BUTTONS_OK,
+		"%s",
+		m,
+	)
+	log.Println(m)
+	d.Run()
+	d.Destroy()
+}
+
+// TODO: refactor dialog code
+// TODO: clean up logging
+func GetStats(win *gtk.ApplicationWindow, latestResults *[]lib.Result) {
+	stats, err := lib.GetStats(*latestResults)
+	if err != nil {
+		d := gtk.MessageDialogNew(
+			win,
+			gtk.DIALOG_MODAL,
+			gtk.MESSAGE_WARNING,
+			gtk.BUTTONS_OK,
+			err.Error(),
+		)
+		log.Println(err.Error())
+		d.Run()
+		d.Destroy()
+		return
+	}
+	m := fmt.Sprintf("%v\n\nWould you like to copy these stats to your clipboard?", stats)
+	d := gtk.MessageDialogNew(win,
+		gtk.DIALOG_MODAL,
+		gtk.MESSAGE_INFO,
+		gtk.BUTTONS_YES_NO,
+		m,
+	)
+	log.Println(stats)
+	resp := d.Run()
+	d.Destroy()
+	if resp == gtk.RESPONSE_YES {
+		clipboard, err := gtk.ClipboardGet(gdk.SELECTION_CLIPBOARD)
+		if err != nil {
+			m = fmt.Sprintf("Failed to access the clipboard: %v", err.Error())
+			d := gtk.MessageDialogNew(
+				win,
+				gtk.DIALOG_MODAL,
+				gtk.MESSAGE_ERROR,
+				gtk.BUTTONS_OK,
+				m,
+			)
+			log.Println(m)
+			d.Run()
+			d.Destroy()
+			return
+		}
+		clipboard.SetText(stats)
+		m = ("Success! Copied the stats to the clipboard.")
+		d := gtk.MessageDialogNew(
+			win,
+			gtk.DIALOG_MODAL,
+			gtk.MESSAGE_INFO,
+			gtk.BUTTONS_OK,
+			m,
+		)
+		log.Println(m)
+		d.Run()
+		d.Destroy()
+		return
+	}
 }

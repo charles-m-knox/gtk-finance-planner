@@ -14,6 +14,28 @@ const (
 
 	DefaultConfFileName = "conf.json"
 	DefaultConfFilePath = ".config/finance-planner"
+
+	BalanceInputPlaceholderText = "$500.00 - Enter a balance to start with."
+	FullGridWidth               = 3
+
+	GtkSignalClicked  = "clicked"
+	GtkSignalActivate = "activate"
+	GtkSignalChanged  = "changed"
+
+	ActionClose                   = "close"
+	ActionNew                     = "new"
+	ActionQuit                    = "quit"
+	ActionSaveConfig              = "saveConfig"
+	ActionSaveOpenConfig          = "saveOpenConfig"
+	ActionSaveResults             = "saveResults"
+	ActionCopyResults             = "copyResults"
+	ActionLoadConfigCurrentWindow = "loadConfigCurrentWindow"
+	ActionLoadConfigNewWindow     = "loadConfigNewWindow"
+
+	HideInactiveBtnLabel = "Hide inactive"
+	CloneBtnLabel        = "Clone"
+	AddBtnLabel          = "+"
+	DelBtnLabel          = "-"
 )
 
 const (
