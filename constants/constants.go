@@ -32,10 +32,10 @@ const (
 	ActionLoadConfigCurrentWindow = "loadConfigCurrentWindow"
 	ActionLoadConfigNewWindow     = "loadConfigNewWindow"
 
-	HideInactiveBtnLabel = "Hide inactive"
-	CloneBtnLabel        = "Clone"
-	AddBtnLabel          = "+"
-	DelBtnLabel          = "-"
+	HideInactiveBtnLabel = "_Hide inactive"
+	CloneBtnLabel        = "_Clone"
+	AddBtnLabel          = "_+"
+	DelBtnLabel          = "_-"
 )
 
 const (

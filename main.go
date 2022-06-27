@@ -88,6 +88,14 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
 
+	// TODO: investigate svg pixbuf loading instead of png loading
+	// pb, err := gdk.PixbufNewFromFile("./assets/icon-128.png")
+	// if err != nil {
+	// 	log.Fatalf("failed to read app icon: %v", err.Error())
+	// }
+	// win.SetIcon(pb)
+
+	win.SetIconFromFile("./assets/icon-128.png")
 	win.SetTitle(c.FinancialPlanner)
 	header.SetTitle(c.FinancialPlanner)
 	header.SetShowCloseButton(true)
@@ -444,7 +452,6 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
 		HideInactive = !HideInactive
 		chkBtn.SetActive(HideInactive)
-		updateResults(false)
 		ui.SyncListStore(&userTX, configViewListStore)
 	}
 
@@ -508,19 +515,19 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	hideInactiveCheckbox.Connect(c.GtkSignalClicked, hideInactiveCheckBoxClickedHandler)
 
-	addConfItemBtn, err := gtk.ButtonNewWithLabel(c.AddBtnLabel)
+	addConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.AddBtnLabel)
 	if err != nil {
 		log.Fatal("failed to create add conf item button:", err)
 	}
 	ui.SetSpacerMarginsGtkBtn(addConfItemBtn)
 
-	delConfItemBtn, err := gtk.ButtonNewWithLabel(c.DelBtnLabel)
+	delConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.DelBtnLabel)
 	if err != nil {
 		log.Fatal("failed to create add conf item button:", err)
 	}
 	ui.SetSpacerMarginsGtkBtn(delConfItemBtn)
 
-	cloneConfItemBtn, err := gtk.ButtonNewWithLabel(c.CloneBtnLabel)
+	cloneConfItemBtn, err := gtk.ButtonNewWithMnemonic(c.CloneBtnLabel)
 	if err != nil {
 		log.Fatal("failed to create clone conf item button:", err)
 	}
