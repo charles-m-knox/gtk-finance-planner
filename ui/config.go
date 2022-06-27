@@ -78,7 +78,7 @@ func getOrderColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	orderCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -108,7 +108,7 @@ func getOrderColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		} else {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnOrder, c.Asc)
 		}
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			// TODO: create a "show message" function pointer and call it here
@@ -145,7 +145,7 @@ func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	amtCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -176,7 +176,7 @@ func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnAmount, c.Asc)
 		}
 		log.Printf("amount column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -194,8 +194,7 @@ func getActiveColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		c.COLUMN_ACTIVE,
 		false,
 		ws.ConfigListStore,
-		ws.TX,
-		*ws.UpdateResults,
+		ws,
 	)
 	if err != nil {
 		return tvc, fmt.Errorf(
@@ -217,7 +216,7 @@ func getActiveColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnActive, c.Asc)
 		}
 		log.Printf("active column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -249,7 +248,7 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	nameCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -279,7 +278,7 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnName, c.Asc)
 		}
 		log.Printf("name column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -325,7 +324,7 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	freqCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -356,7 +355,7 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnFrequency, c.Asc)
 		}
 		log.Printf("frequency column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -404,7 +403,7 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	intervalCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -434,7 +433,7 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnInterval, c.Asc)
 		}
 		log.Printf("interval column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -473,7 +472,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	startsCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -503,7 +502,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnStarts, c.Asc)
 		}
 		log.Printf("starts column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -542,7 +541,7 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	endsCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -572,7 +571,7 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnEnds, c.Asc)
 		}
 		log.Printf("ends column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -606,7 +605,7 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			}
 			return false
 		})
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 	}
 	notesCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -636,7 +635,7 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnNote, c.Asc)
 		}
 		log.Printf("notes column clicked, sort column: %v", ws.ConfigColumnSort)
-		(*ws.UpdateResults)()
+		UpdateResults(ws, false)
 		err := SyncConfigListStore(ws)
 		if err != nil {
 			log.Printf("failed to sync list store: %v", err.Error())
@@ -701,8 +700,7 @@ func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 			c.COLUMN_MONDAY+weekdayIndex,
 			false,
 			ws.ConfigListStore,
-			ws.TX,
-			*ws.UpdateResults,
+			ws,
 		)
 		if err != nil {
 			return tv, fmt.Errorf(
@@ -722,7 +720,7 @@ func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 				ws.ConfigColumnSort = fmt.Sprintf("%v%v", weekday, c.Asc)
 			}
 			log.Printf("%v column clicked, sort column: %v, %v", weekday, ws.ConfigColumnSort, weekdayIndex)
-			(*ws.UpdateResults)()
+			UpdateResults(ws, false)
 			err := SyncConfigListStore(ws)
 			if err != nil {
 				log.Printf("failed to sync list store: %v", err.Error())

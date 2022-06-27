@@ -15,15 +15,17 @@ type WinState struct {
 	HideInactive        bool
 	ConfigColumnSort    string
 	OpenFileName        string
+	StartingBalance     int
 	StartDate           string
 	EndDate             string
 	SelectedConfigItems []int
 	ShowMessageDialog   *func(message string)
 	ConfigListStore     *gtk.ListStore
 	ResultsListStore    *gtk.ListStore
-	UpdateResults       *func()   // function that gets called upon editing things
 	TX                  *[]lib.TX // transaction definitions for the current window
 	Results             *[]lib.Result
 	App                 *gtk.Application
 	Win                 *gtk.ApplicationWindow
+	Header              *gtk.HeaderBar
+	Notebook            *gtk.Notebook
 }

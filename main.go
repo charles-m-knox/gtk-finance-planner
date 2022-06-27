@@ -65,22 +65,22 @@ func main() {
 func primary(application *gtk.Application, filename string) *gtk.ApplicationWindow {
 	// variables stored like this can be accessed via go routines if needed
 	var (
-		nSets           = 1
-		startingBalance = 50000
-		err             error
-		ws              *state.WinState
+		nSets = 1
+		err   error
+		ws    *state.WinState
 	)
 
 	ws = &state.WinState{
 		HideInactive:        false,
 		ConfigColumnSort:    c.None,
 		OpenFileName:        filename,
-		App:                 application,
+		StartingBalance:     50000,
 		StartDate:           lib.GetNowDateString(),
 		EndDate:             lib.GetDefaultEndDateString(),
 		SelectedConfigItems: []int{},
 		TX:                  &[]lib.TX{},
 		Results:             &[]lib.Result{},
+		App:                 application,
 	}
 
 	// initialize some values
@@ -96,6 +96,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
 	ws.Win = win
+	ws.Header = header
 
 	// TODO: investigate svg pixbuf loading instead of png loading
 	// pb, err := gdk.PixbufNewFromFile("./assets/icon-128.png")
@@ -124,105 +125,56 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	})
 	win.AddAction(aClose)
 
-	// create and insert custom action group with prefix "fin" (for finances)
-	finActionGroup := glib.SimpleActionGroupNew()
-	win.InsertActionGroup("fin", finActionGroup)
-
 	saveConfAsFn := func() {
-		ui.SaveConfAs(win, header, &ws.OpenFileName, ws.TX)
+		ui.SaveConfAs(ws.Win, ws.Header, &ws.OpenFileName, ws.TX)
 	}
 
 	saveOpenConfFn := func() {
-		ui.SaveOpenConf(win, header, &ws.OpenFileName, ws.TX)
+		ui.SaveOpenConf(ws.Win, ws.Header, &ws.OpenFileName, ws.TX)
 	}
 
 	saveResultsFn := func() {
-		ui.SaveResults(win, header, ws.Results)
+		ui.SaveResults(ws.Win, ws.Header, ws.Results)
 	}
 
 	copyResultsFn := func() {
-		ui.CopyResults(win, header, ws.Results)
+		ui.CopyResults(ws.Win, ws.Header, ws.Results)
 	}
 
 	saveConfAsAction := glib.SimpleActionNew(c.ActionSaveConfig, nil)
-	saveConfAsAction.Connect(c.GtkSignalActivate, saveConfAsFn)
-	finActionGroup.AddAction(saveConfAsAction)
-	win.AddAction(saveConfAsAction)
-
 	saveOpenConfAction := glib.SimpleActionNew(c.ActionSaveOpenConfig, nil)
-	saveOpenConfAction.Connect(c.GtkSignalActivate, saveOpenConfFn)
-	finActionGroup.AddAction(saveOpenConfAction)
-	win.AddAction(saveOpenConfAction)
-
 	saveResultsAction := glib.SimpleActionNew(c.ActionSaveResults, nil)
-	saveResultsAction.Connect(c.GtkSignalActivate, saveResultsFn)
-	finActionGroup.AddAction(saveResultsAction)
-	win.AddAction(saveResultsAction)
-
 	copyResultsAction := glib.SimpleActionNew(c.ActionCopyResults, nil)
-	copyResultsAction.Connect(c.GtkSignalActivate, copyResultsFn)
-	finActionGroup.AddAction(copyResultsAction)
-	win.AddAction(copyResultsAction)
-
 	loadConfCurrentWindowAction := glib.SimpleActionNew(c.ActionLoadConfigCurrentWindow, nil)
-	finActionGroup.AddAction(loadConfCurrentWindowAction)
-	win.AddAction(loadConfCurrentWindowAction)
-
 	loadConfNewWindowAction := glib.SimpleActionNew(c.ActionLoadConfigNewWindow, nil)
+
+	saveConfAsAction.Connect(c.GtkSignalActivate, saveConfAsFn)
+	saveOpenConfAction.Connect(c.GtkSignalActivate, saveOpenConfFn)
+	saveResultsAction.Connect(c.GtkSignalActivate, saveResultsFn)
+	copyResultsAction.Connect(c.GtkSignalActivate, copyResultsFn)
+
+	// create and insert custom action group with prefix "fin" (for finances)
+	finActionGroup := glib.SimpleActionGroupNew()
+	finActionGroup.AddAction(saveConfAsAction)
+	finActionGroup.AddAction(saveOpenConfAction)
+	finActionGroup.AddAction(saveResultsAction)
+	finActionGroup.AddAction(copyResultsAction)
+	finActionGroup.AddAction(loadConfCurrentWindowAction)
 	finActionGroup.AddAction(loadConfNewWindowAction)
-	win.AddAction(loadConfNewWindowAction)
+
+	ws.Win.InsertActionGroup("fin", finActionGroup)
+	ws.Win.AddAction(saveConfAsAction)
+	ws.Win.AddAction(saveOpenConfAction)
+	ws.Win.AddAction(saveResultsAction)
+	ws.Win.AddAction(copyResultsAction)
+	ws.Win.AddAction(loadConfCurrentWindowAction)
+	ws.Win.AddAction(loadConfNewWindowAction)
 
 	nb, err := gtk.NotebookNew()
+	ws.Notebook = nb
 	if err != nil {
 		log.Fatal("failed to create notebook:", err)
 	}
-
-	updateResults := func(switchTo bool) {
-		*ws.Results, err = lib.GenerateResultsFromDateStrings(
-			ws.TX,
-			startingBalance,
-			ws.StartDate,
-			ws.EndDate,
-		)
-		if err != nil {
-			log.Fatal("failed to generate results from date strings", err.Error())
-		}
-
-		header.SetSubtitle(fmt.Sprintf("%v*", ws.OpenFileName))
-
-		// TODO: clear and re-populate the list store instead of removing the
-		// entire tab page
-
-		// nb.RemovePage(c.TAB_RESULTS)
-		// newSw, newLabel, ws.ResultsListStore, err := ui.GenerateResultsTab(&userTX, *ws.Results)
-		// if err != nil {
-		// 	log.Fatalf("failed to generate results tab: %v", err.Error())
-		// }
-		// nb.InsertPage(newSw, newLabel, c.TAB_RESULTS)
-
-		if ws.ResultsListStore != nil {
-			err = ui.SyncResultsListStore(ws.Results, ws.ResultsListStore)
-			if err != nil {
-				log.Print("failed to sync results list store:", err.Error())
-			}
-			win.ShowAll()
-			if switchTo {
-				nb.SetCurrentPage(c.TAB_RESULTS)
-			}
-		}
-	}
-
-	updateResultsDefault := func() {
-		updateResults(true)
-	}
-
-	updateResultsSilent := func() {
-		updateResults(false)
-	}
-
-	// this function gets used a lot throughout the application, so we need
-	// to pass around a reference to the function
-	ws.UpdateResults = &updateResultsSilent
 
 	startingBalanceInput, err := gtk.EntryNew()
 	if err != nil {
@@ -235,9 +187,9 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		if s == "" {
 			return
 		}
-		startingBalance = int(lib.ParseDollarAmount(s, true))
-		startingBalanceInput.SetText(lib.FormatAsCurrency(startingBalance))
-		updateResults(true)
+		ws.StartingBalance = int(lib.ParseDollarAmount(s, true))
+		startingBalanceInput.SetText(lib.FormatAsCurrency(ws.StartingBalance))
+		ui.UpdateResults(ws, true)
 	}
 	startingBalanceInput.Connect(c.GtkSignalActivate, updateStartingBalance)
 
@@ -256,7 +208,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		}
 		ws.StartDate = fmt.Sprintf("%v-%v-%v", y, m, d)
 		stDateInput.SetText(ws.StartDate)
-		updateResults(true)
+		ui.UpdateResults(ws, true)
 	}
 	stDateInput.Connect(c.GtkSignalActivate, stDateInputUpdate)
 	stDateInput.Connect("focus-out-event", stDateInputUpdate)
@@ -276,7 +228,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		}
 		ws.EndDate = fmt.Sprintf("%v-%v-%v", y, m, d)
 		endDateInput.SetText(ws.EndDate)
-		updateResults(true)
+		ui.UpdateResults(ws, true)
 	}
 	endDateInput.Connect(c.GtkSignalActivate, endDateInputUpdate)
 	endDateInput.Connect("focus-out-event", endDateInputUpdate)
@@ -400,7 +352,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 					nb.RemovePage(c.TAB_CONFIG)
 					newConfigSw, newLabel := genConfigView()
 					nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-					updateResults(false)
+					ui.UpdateResults(ws, false)
 					win.ShowAll()
 					nb.SetCurrentPage(c.TAB_CONFIG)
 					header.SetSubtitle(ws.OpenFileName)
@@ -445,14 +397,14 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				*ws.TX = lib.RemoveTXAtIndex(*ws.TX, ws.SelectedConfigItems[i])
 			}
 
-			updateResults(false)
+			ui.UpdateResults(ws, false)
 			ui.SyncConfigListStore(ws)
 
 			// TODO: old code - jittery and inefficient
 			// nb.RemovePage(c.TAB_CONFIG)
 			// newConfigSw, newLabel := genConfigView()
 			// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-			// updateResults(false)
+			// ui.UpdateResults(ws, false)
 			// win.ShowAll()
 			// nb.SetCurrentPage(c.TAB_CONFIG)
 
@@ -480,7 +432,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			Interval:  1,
 		})
 
-		updateResults(false)
+		ui.UpdateResults(ws, false)
 		ui.SyncConfigListStore(ws)
 
 		// old code - this is less efficient and jitters the view
@@ -505,14 +457,14 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				(*ws.TX)[len(*ws.TX)-1].Order = len(*ws.TX)
 			}
 
-			updateResults(false)
+			ui.UpdateResults(ws, false)
 			ui.SyncConfigListStore(ws)
 
 			// TODO: old code - less efficient and jittery
 			// nb.RemovePage(c.TAB_CONFIG)
 			// newConfigSw, newLabel := genConfigView()
 			// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-			// updateResults(false)
+			// ui.UpdateResults(ws, false)
 			// win.ShowAll()
 			// nb.SetCurrentPage(c.TAB_CONFIG)
 		}
@@ -561,7 +513,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	*ws.Results, err = lib.GenerateResultsFromDateStrings(
 		ws.TX,
-		startingBalance,
+		ws.StartingBalance,
 		ws.StartDate,
 		ws.EndDate,
 	)
@@ -630,6 +582,14 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	getStats := func() {
 		ui.GetStats(win, ws.Results)
+	}
+
+	updateResultsDefault := func() {
+		ui.UpdateResults(ws, true)
+	}
+
+	updateResultsSilent := func() {
+		ui.UpdateResults(ws, false)
 	}
 
 	loadConfCurrentWindowAction.Connect(c.GtkSignalActivate, loadConfCurrentWindowFn)

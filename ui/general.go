@@ -7,13 +7,14 @@ import (
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
+	"finance-planner/state"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
-func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListStore, txs *[]lib.TX, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
+func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListStore, ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	cellRenderer, err := gtk.CellRendererToggleNew()
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create checkbox column renderer: %v", err.Error())
@@ -33,7 +34,7 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 
 		if lib.IsWeekday(c.ConfigColumns[id]) {
 			weekday := lib.WeekdayIndex[c.ConfigColumns[id]]
-			(*txs)[i].Weekdays = lib.ToggleDayFromWeekdays((*txs)[i].Weekdays, weekday)
+			(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
 
 			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 				if searchPath.String() == path {
@@ -41,13 +42,13 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 						iter,
 						[]int{id},
 						[]interface{}{
-							(*txs)[i].DoesTXHaveWeekday(weekday),
+							(*ws.TX)[i].DoesTXHaveWeekday(weekday),
 						})
 					return true
 				}
 				return false
 			})
-			updateResults()
+			UpdateResults(ws, false)
 			// note: calling SyncConfigListStore is unnecessary here, because the
 			// above listStore.ForEach query actually syncs it for us. Also,
 			// calling SyncConfigListStore actually causes some annoying UI behavior.
@@ -56,18 +57,18 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 			// 	log.Printf("failed to sync list store: %v", err.Error())
 			// }
 		} else if c.ConfigColumns[id] == c.ColumnActive {
-			(*txs)[i].Active = !(*txs)[i].Active
+			(*ws.TX)[i].Active = !(*ws.TX)[i].Active
 			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
 				if searchPath.String() == path {
 					listStore.Set(
 						iter,
 						[]int{id},
-						[]interface{}{(*txs)[i].Active})
+						[]interface{}{(*ws.TX)[i].Active})
 					return true
 				}
 				return false
 			})
-			updateResults()
+			UpdateResults(ws, false)
 			// note: calling SyncConfigListStore is unnecessary here, because the
 			// above listStore.ForEach query actually syncs it for us. Also,
 			// calling SyncConfigListStore actually causes some annoying UI behavior.
