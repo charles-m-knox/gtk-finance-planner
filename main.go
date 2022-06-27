@@ -16,17 +16,6 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-// important at some point:
-// https://github.com/gotk3/gotk3-examples/blob/master/gtk-examples/goroutines/goroutines.go
-// https://github.com/gotk3/gotk3-examples/blob/master/gtk-examples/statusicon/main.go
-// https://github.com/gotk3/gotk3-examples/blob/master/gtk-examples/textview/textview.go
-// https://golangdocs.com/aes-encryption-decryption-in-golang
-
-const (
-	TAB_CONFIG = iota
-	TAB_RESULTS
-)
-
 var (
 	HideInactive    = false
 	HideInactivePtr = &HideInactive
@@ -89,123 +78,19 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		latestResults             []lib.Result
 	)
 
-	// start the gtk window - not needed since we're bootstrapping the application
-	// differently
-	// gtk.Init(nil)
+	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
 
-	win, err := gtk.ApplicationWindowNew(application)
-	// win, err := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
-	if err != nil {
-		log.Fatal("unable to create window:", err)
-	}
-	rootBox, err := gtk.BoxNew(gtk.ORIENTATION_VERTICAL, c.UISpacer)
-	if err != nil {
-		log.Fatal("unable to create root box:", err)
-	}
-
-	win.SetTitle("Financial Planner")
-
-	// TODO: this can be moved to elsewhere
-	if openFileName != "" {
-		userTX, err = lib.LoadConfig(openFileName)
-		if err != nil {
-			m := fmt.Sprintf(
-				"Config does not exist at %v. Would you like to create a new one there now?",
-				openFileName,
-			)
-			d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_QUESTION, gtk.BUTTONS_YES_NO, "%s", m)
-			log.Println(m)
-			resp := d.Run()
-			if resp == gtk.RESPONSE_YES {
-				err := lib.SaveConfig(openFileName, userTX)
-				if err != nil {
-					m := fmt.Sprintf("Failed to save config upon window load - will proceed with a blank config. Here's the error: %v", err.Error())
-					di := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
-					log.Println(m)
-					di.Run()
-					di.Destroy()
-				}
-			}
-			d.Destroy()
-		}
-	}
-
-	// win.Connect("destroy", quit)
-
-	// Create a header bar
-	header, err := gtk.HeaderBarNew()
-	if err != nil {
-		log.Fatal("Could not create header bar:", err)
-	}
+	win.SetTitle(c.FinancialPlanner)
 	header.SetShowCloseButton(true)
-	header.SetTitle("Financial Planner")
+	header.SetTitle(c.FinancialPlanner)
 	header.SetSubtitle(openFileName)
 
-	if len(userTX) == 0 {
-		userTX = []lib.TX{{
-			Order:     1,
-			Amount:    -500,
-			Active:    true,
-			Name:      "New",
-			Frequency: "WEEKLY",
-			Interval:  1,
-		}}
-		header.SetSubtitle(fmt.Sprintf("%v*", openFileName))
-		if openFileName != "" {
-			m := fmt.Sprintf(
-				"Success! Loaded file \"%v\" successfully. The configuration was empty, so a sample recurring transaction has been added.",
-				openFileName,
-			)
-			d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
-			log.Println(m)
-			d.Run()
-			d.Destroy()
-		}
-	}
-
-	// Create a new menu button
-	mbtn, err := gtk.MenuButtonNew()
-	if err != nil {
-		log.Fatal("Could not create menu button:", err)
-	}
-	// Set up the menu model for the button
-	menu := glib.MenuNew()
-	if menu == nil {
-		log.Fatal("Could not create menu (nil)")
-	}
-	// Actions with the prefix 'app' reference actions on the application
-	// Actions with the prefix 'win' reference actions on the current window (specific to ApplicationWindow)
-	// Other prefixes can be added to widgets via InsertActionGroup
-	// menu.Append("Custom Panic", "custom.panic")
-	menu.Append("Save", "fin.saveOpenConfig")
-	menu.Append("Save as...", "fin.saveConfig")
-	menu.Append("Open...", "fin.loadConfigCurrentWindow")
-	menu.Append("Open in new window...", "fin.loadConfigNewWindow")
-	menu.Append("Save results...", "fin.saveResults")
-	menu.Append("Copy results to clipboard", "fin.copyResults")
-	menu.Append("New Window", "app.new")
-	menu.Append("Close Window", "win.close")
-	menu.Append("Quit", "app.quit")
-
-	// gtk.AccelMapGet().Connect("appquitplease", func() {
-	// 	application.Quit()
-	// })
-
-	// gtk.AccelMapAddEntry(
-	// 	"appquitplease",
-	// 	keyQ,
-	// 	modCtrl,
-	// )
-
-	// create keyboard shortcuts window some time later
-	// shortcutsWindow := gtk.ShortcutsWindow{Window}
-	// shortcuts := gtk.ShortcutsSection{Box: *rootBox}
-	// shortcutsMainGroup := gtk.ShortcutsGroup{Box: shortcuts.Box}
-	// err = shortcutsMainGroup.SetProperty("title", "Primary")
-	// if err != nil {
-	// 	log.Println("failed to set shortcuts main group title property", err.Error())
-	// }
-	// shortcutSave := gtk.ShortcutsShortcut
+	ui.ProcessInitialConfigLoad(
+		win,
+		header,
+		openFileName,
+		&userTX,
+	)
 
 	// Create the action "win.close"
 	aClose := glib.SimpleActionNew("close", nil)
@@ -219,41 +104,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	win.InsertActionGroup("fin", finActionGroup)
 
 	saveConfAsFn := func() {
-		p, err := gtk.FileChooserDialogNewWith2Buttons(
-			"Save config",
-			win,
-			gtk.FILE_CHOOSER_ACTION_SAVE,
-			"_Save",
-			gtk.RESPONSE_OK,
-			"_Cancel",
-			gtk.RESPONSE_CANCEL,
-		)
-		if err != nil {
-			log.Fatal("failed to create save config file picker", err.Error())
-		}
-		p.Connect("close", func() {
-			p.Close()
-		})
-		p.Connect("response", func(dialog *gtk.FileChooserDialog, resp int) {
-			if resp == int(gtk.RESPONSE_OK) {
-				// folder, _ := dialog.FileChooser.GetCurrentFolder()
-				// GetFilename includes the full path and file name
-				openFileName = dialog.FileChooser.GetFilename()
-				// write the config to the target file path
-				err := lib.SaveConfig(openFileName, userTX)
-				if err != nil {
-					m := fmt.Sprintf("Failed to save config to file \"%v\": %v", openFileName, err.Error())
-					d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
-					log.Println(m)
-					d.Run()
-					d.Destroy()
-					return
-				}
-				header.SetSubtitle(openFileName)
-			}
-			p.Close()
-		})
-		p.Dialog.ShowAll()
+		ui.SaveConfAsFn(win, header, &openFileName, &userTX)
 	}
 
 	saveConfAsAction := glib.SimpleActionNew("saveConfig", nil)
@@ -361,11 +212,6 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	mainBtn.SetMarginStart(c.UISpacer)
 	mainBtn.SetMarginEnd(c.UISpacer)
 
-	// spnBtn, err := gtk.SpinButtonNewWithRange(0.0, 1.0, 0.001)
-	// if err != nil {
-	// 	log.Fatal("Unable to create spin button:", err)
-	// }
-
 	nb, err := gtk.NotebookNew()
 	if err != nil {
 		log.Fatal("Unable to create notebook:", err)
@@ -381,16 +227,16 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		if err != nil {
 			log.Fatal("failed to generate results from date strings", err.Error())
 		}
-		nb.RemovePage(TAB_RESULTS)
+		nb.RemovePage(c.TAB_RESULTS)
 		newSw, newLabel, err := ui.GenerateResultsTab(&userTX, latestResults)
 		if err != nil {
 			log.Fatalf("failed to generate results tab: %v", err.Error())
 		}
-		nb.InsertPage(newSw, newLabel, TAB_RESULTS)
+		nb.InsertPage(newSw, newLabel, c.TAB_RESULTS)
 		header.SetSubtitle(fmt.Sprintf("%v*", openFileName))
 		win.ShowAll()
 		if switchTo {
-			nb.SetCurrentPage(TAB_RESULTS)
+			nb.SetCurrentPage(c.TAB_RESULTS)
 		}
 	}
 
@@ -624,12 +470,12 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 							Interval:  1,
 						}}
 					}
-					nb.RemovePage(TAB_CONFIG)
+					nb.RemovePage(c.TAB_CONFIG)
 					newConfigSw, newLabel := genConfigView()
-					nb.InsertPage(newConfigSw, newLabel, TAB_CONFIG)
+					nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
 					updateResults(false)
 					win.ShowAll()
-					nb.SetCurrentPage(TAB_CONFIG)
+					nb.SetCurrentPage(c.TAB_CONFIG)
 					header.SetSubtitle(openFileName)
 					m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", openFileName, extraDialogMessageText)
 					d := gtk.MessageDialogNew(win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
@@ -667,12 +513,12 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				// https://www.golangprograms.com/how-to-delete-an-element-from-a-slice-in-golang.html
 				userTX = lib.RemoveTXAtIndex(userTX, selectedConfigItemIndexes[i])
 			}
-			nb.RemovePage(TAB_CONFIG)
+			nb.RemovePage(c.TAB_CONFIG)
 			newConfigSw, newLabel := genConfigView()
-			nb.InsertPage(newConfigSw, newLabel, TAB_CONFIG)
+			nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
 			updateResults(false)
 			win.ShowAll()
-			nb.SetCurrentPage(TAB_CONFIG)
+			nb.SetCurrentPage(c.TAB_CONFIG)
 			selectedConfigItemIndexes = []int{}
 		}
 	}
@@ -689,7 +535,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	}
 
 	addConfItemHandler := func() {
-		// nb.RemovePage(TAB_CONFIG)
+		// nb.RemovePage(c.TAB_CONFIG)
 		userTX = append(userTX, lib.TX{
 			Order:     len(userTX) + 1,
 			Amount:    -500,
@@ -704,9 +550,9 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 		// old code - this is less efficient and jitters the view
 		// newConfigSw, newLabel := genConfigView()
-		// nb.InsertPage(newConfigSw, newLabel, TAB_CONFIG)
+		// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
 		// win.ShowAll()
-		// nb.SetCurrentPage(TAB_CONFIG)
+		// nb.SetCurrentPage(c.TAB_CONFIG)
 	}
 
 	cloneConfItemHandler := func() {
@@ -723,12 +569,12 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 				userTX = append(userTX, userTX[selectedConfigItemIndexes[i]])
 				userTX[len(userTX)-1].Order = len(userTX)
 			}
-			nb.RemovePage(TAB_CONFIG)
+			nb.RemovePage(c.TAB_CONFIG)
 			newConfigSw, newLabel := genConfigView()
-			nb.InsertPage(newConfigSw, newLabel, TAB_CONFIG)
+			nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
 			updateResults(false)
 			win.ShowAll()
-			nb.SetCurrentPage(TAB_CONFIG)
+			nb.SetCurrentPage(c.TAB_CONFIG)
 		}
 		// selectedConfigItemIndexes = []int{}
 	}
@@ -771,33 +617,6 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	cloneConfItemBtn.SetMarginBottom(c.UISpacer)
 	cloneConfItemBtn.SetMarginStart(c.UISpacer)
 	cloneConfItemBtn.SetMarginEnd(c.UISpacer)
-
-	// saveConfBtn, err := gtk.ButtonNewWithLabel("Save Config")
-	// if err != nil {
-	// 	log.Fatal("Unable to create save conf item button:", err)
-	// }
-	// saveConfBtn.SetMarginTop(c.UISpacer)
-	// saveConfBtn.SetMarginBottom(c.UISpacer)
-	// saveConfBtn.SetMarginStart(c.UISpacer)
-	// saveConfBtn.SetMarginEnd(c.UISpacer)
-
-	// loadConfBtn, err := gtk.ButtonNewWithLabel("Load Config")
-	// if err != nil {
-	// 	log.Fatal("Unable to create load conf item button:", err)
-	// }
-	// loadConfBtn.SetMarginTop(c.UISpacer)
-	// loadConfBtn.SetMarginBottom(c.UISpacer)
-	// loadConfBtn.SetMarginStart(c.UISpacer)
-	// loadConfBtn.SetMarginEnd(c.UISpacer)
-
-	// saveResultsItemBtn, err := gtk.ButtonNewWithLabel("Save Results")
-	// if err != nil {
-	// 	log.Fatal("Unable to create save results item button:", err)
-	// }
-	// saveResultsItemBtn.SetMarginTop(c.UISpacer)
-	// saveResultsItemBtn.SetMarginBottom(c.UISpacer)
-	// saveResultsItemBtn.SetMarginStart(c.UISpacer)
-	// saveResultsItemBtn.SetMarginEnd(c.UISpacer)
 
 	configGrid, err := gtk.GridNew()
 	if err != nil {
@@ -874,12 +693,12 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 
 	setTabToConfig := func() {
 		log.Println(nb.GetCurrentPage())
-		nb.SetCurrentPage(TAB_CONFIG)
+		nb.SetCurrentPage(c.TAB_CONFIG)
 	}
 
 	setTabToResults := func() {
 		log.Println(nb.GetCurrentPage())
-		nb.SetCurrentPage(TAB_RESULTS)
+		nb.SetCurrentPage(c.TAB_RESULTS)
 	}
 
 	nextTab := func() {

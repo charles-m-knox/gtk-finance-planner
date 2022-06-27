@@ -14,7 +14,6 @@ func createColumn(title string, id int) (tvc *gtk.TreeViewColumn, err error) {
 	}
 
 	column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "markup", id)
-	// column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "text", id)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create cell column: %v", err.Error())
 	}

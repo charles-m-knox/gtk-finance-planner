@@ -8,10 +8,17 @@ const (
 	Monthly = "Monthly"
 	Yearly  = "Yearly"
 
+	FinancialPlanner = "Financial Planner"
+
 	UISpacer = 10 // allows consistent spacing between all elements
 
 	DefaultConfFileName = "conf.json"
 	DefaultConfFilePath = ".config/finance-planner"
+)
+
+const (
+	TAB_CONFIG = iota
+	TAB_RESULTS
 )
 
 // A zebra-like pattern helps visually parse values in the "day transaction
