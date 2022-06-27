@@ -12,6 +12,16 @@ const (
 	DefaultConfFilePath = ".config/finance-planner"
 )
 
+// A zebra-like pattern helps visually parse values in the "day transaction
+// names" column in the results view. These are blue-ish colors.
+var ResultsTXNameColorSequences = []string{
+	"#d9e7fd",
+	// "#b4cffb",
+	// "#8eb7f9",
+	// "#699ff7",
+	"#4387f5",
+}
+
 // results page values
 
 const (

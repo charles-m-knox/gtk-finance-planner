@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	c "finance-planner/constants"
+
 	"github.com/teambition/rrule-go"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -602,4 +604,32 @@ func SaveResultsCSV(file string, results *[]Result) (err error) {
 	}
 	w.Flush()
 	return nil
+}
+
+// TODO: move to lib
+func CurrencyMarkup(input int) string {
+	currency := FormatAsCurrency(input)
+	if input == 0 {
+		return fmt.Sprintf(`<i><span foreground="#CCCCCC">%v</span></i>`, currency)
+	}
+	if input > 0 {
+		return fmt.Sprintf(`<span foreground="#c2e1b5">%v</span>`, currency)
+	}
+	if input < 0 {
+		return fmt.Sprintf(`<span foreground="#dda49e">%v</span>`, currency)
+	}
+
+	return currency
+}
+
+func MarkupColorSequence(input []string) string {
+	result := new(strings.Builder)
+	if len(input) > 0 {
+		result.WriteString(fmt.Sprintf("(%v) ", len(input)))
+	}
+	for i, name := range input {
+		colorSequenceIndex := i % len(c.ResultsTXNameColorSequences)
+		result.WriteString(fmt.Sprintf(`<u><span foreground="%v">%v</span></u>; `, c.ResultsTXNameColorSequences[colorSequenceIndex], name))
+	}
+	return result.String()
 }

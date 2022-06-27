@@ -154,7 +154,7 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 
 	rowData := []interface{}{
 		markupText(tx, fmt.Sprint(tx.Order)),
-		markupCurrency(tx, currencyMarkup(tx.Amount)),
+		markupCurrency(tx, lib.CurrencyMarkup(tx.Amount)),
 		tx.Active,
 		markupText(tx, tx.Name),
 		markupText(tx, tx.Frequency),

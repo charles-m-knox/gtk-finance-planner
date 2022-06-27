@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-	"strings"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
@@ -31,24 +30,6 @@ func GetResultsAsTreeView(results *[]lib.Result) (tv *gtk.TreeView, ls *gtk.List
 	treeView.SetRubberBanding(true)
 
 	return treeView, listStore, nil
-}
-
-// Add a column to the tree view (during the initialization of the tree view)
-func createColumn(title string, id int) (tvc *gtk.TreeViewColumn, err error) {
-	cellRenderer, err := gtk.CellRendererTextNew()
-	if err != nil {
-		return tvc, fmt.Errorf("unable to create text cell renderer: %v", err.Error())
-	}
-
-	column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "markup", id)
-	// column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "text", id)
-	if err != nil {
-		return tvc, fmt.Errorf("unable to create cell column: %v", err.Error())
-	}
-	column.SetResizable(true)
-	column.SetClickable(true)
-
-	return column, nil
 }
 
 func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListStore, txs *[]lib.TX, updateResults func()) (tvc *gtk.TreeViewColumn, err error) {
@@ -166,42 +147,6 @@ func setupTreeView() (tv *gtk.TreeView, ls *gtk.ListStore, err error) {
 	return treeView, listStore, nil
 }
 
-// TODO: move to lib
-func currencyMarkup(input int) string {
-	currency := lib.FormatAsCurrency(input)
-	if input == 0 {
-		return fmt.Sprintf(`<i><span foreground="#CCCCCC">%v</span></i>`, currency)
-	}
-	if input > 0 {
-		return fmt.Sprintf(`<span foreground="#c2e1b5">%v</span>`, currency)
-	}
-	if input < 0 {
-		return fmt.Sprintf(`<span foreground="#dda49e">%v</span>`, currency)
-	}
-
-	return currency
-}
-
-var colorSequences = []string{
-	"#d9e7fd",
-	// "#b4cffb",
-	// "#8eb7f9",
-	// "#699ff7",
-	"#4387f5",
-}
-
-func markupDayTransactionNames(input []string) string {
-	result := new(strings.Builder)
-	if len(input) > 0 {
-		result.WriteString(fmt.Sprintf("(%v) ", len(input)))
-	}
-	for i, name := range input {
-		colorSequenceIndex := i % len(colorSequences)
-		result.WriteString(fmt.Sprintf(`<u><span foreground="%v">%v</span></u>; `, colorSequences[colorSequenceIndex], name))
-	}
-	return result.String()
-}
-
 // Append a row to the list store for the tree view
 func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 	// get an iterator for a new row at the end of the list store
@@ -209,14 +154,14 @@ func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 
 	rowData := []interface{}{
 		lib.FormatAsDate(result.Date),
-		currencyMarkup(result.Balance),
-		currencyMarkup(result.CumulativeIncome),
-		currencyMarkup(result.CumulativeExpenses),
-		currencyMarkup(result.DayExpenses),
-		currencyMarkup(result.DayIncome),
-		currencyMarkup(result.DayNet),
-		currencyMarkup(result.DiffFromStart),
-		markupDayTransactionNames(result.DayTransactionNamesSlice),
+		lib.CurrencyMarkup(result.Balance),
+		lib.CurrencyMarkup(result.CumulativeIncome),
+		lib.CurrencyMarkup(result.CumulativeExpenses),
+		lib.CurrencyMarkup(result.DayExpenses),
+		lib.CurrencyMarkup(result.DayIncome),
+		lib.CurrencyMarkup(result.DayNet),
+		lib.CurrencyMarkup(result.DiffFromStart),
+		lib.MarkupColorSequence(result.DayTransactionNamesSlice),
 	}
 
 	// Set the contents of the list store row that the iterator represents
