@@ -18,11 +18,6 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-var (
-	HideInactive    = false
-	HideInactivePtr = &HideInactive
-)
-
 //go:embed assets/*.png
 var embeddedIconFS embed.FS
 
@@ -77,6 +72,8 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	)
 
 	ws = &state.WinState{
+		HideInactive:        false,
+		ConfigColumnSort:    c.None,
 		OpenFileName:        filename,
 		App:                 application,
 		StartDate:           lib.GetNowDateString(),
@@ -116,15 +113,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	win.SetTitle(c.FinancialPlanner)
 	header.SetTitle(c.FinancialPlanner)
 	header.SetShowCloseButton(true)
-	header.SetSubtitle(ws.OpenFileName)
 	mbtn.SetMenuModel(&menu.MenuModel)
 
-	ui.ProcessInitialConfigLoad(
-		win,
-		header,
-		ws.OpenFileName,
-		ws.TX,
-	)
+	ui.ProcessInitialConfigLoad(win, &ws.OpenFileName, ws.TX)
+	header.SetSubtitle(ws.OpenFileName)
 
 	aClose := glib.SimpleActionNew(c.ActionClose, nil)
 	aClose.Connect(c.GtkSignalActivate, func() {
@@ -224,13 +216,13 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		updateResults(true)
 	}
 
-	// this function gets used a lot throughout the application, so we need
-	// to pass around a reference to the function
-	ws.UpdateResults = &updateResultsDefault
-
 	updateResultsSilent := func() {
 		updateResults(false)
 	}
+
+	// this function gets used a lot throughout the application, so we need
+	// to pass around a reference to the function
+	ws.UpdateResults = &updateResultsSilent
 
 	startingBalanceInput, err := gtk.EntryNew()
 	if err != nil {
@@ -302,11 +294,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 	genConfigView := func() (*gtk.ScrolledWindow, *gtk.Label) {
 		// TODO: refactor the config tree view list store using the same
 		// approach that was used for the results list store
-		configTreeView, err := ui.GetConfigAsTreeView(
-			ws.TX,
-			ws.ConfigListStore,
-			updateResultsSilent,
-		)
+		configTreeView, err := ui.GetConfigAsTreeView(ws)
 		if err != nil {
 			log.Fatalf("failed to get config as tree view: %v", err.Error())
 		}
@@ -458,7 +446,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			}
 
 			updateResults(false)
-			ui.SyncListStore(ws.TX, ws.ConfigListStore)
+			ui.SyncConfigListStore(ws)
 
 			// TODO: old code - jittery and inefficient
 			// nb.RemovePage(c.TAB_CONFIG)
@@ -472,13 +460,10 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		}
 	}
 
-	// initialize some things
-	ui.SetHideInactive(HideInactivePtr)
-
 	hideInactiveCheckBoxClickedHandler := func(chkBtn *gtk.CheckButton) {
-		HideInactive = !HideInactive
-		chkBtn.SetActive(HideInactive)
-		ui.SyncListStore(ws.TX, ws.ConfigListStore)
+		ws.HideInactive = !ws.HideInactive
+		chkBtn.SetActive(ws.HideInactive)
+		ui.SyncConfigListStore(ws)
 	}
 
 	addConfItemHandler := func() {
@@ -496,7 +481,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		})
 
 		updateResults(false)
-		ui.SyncListStore(ws.TX, ws.ConfigListStore)
+		ui.SyncConfigListStore(ws)
 
 		// old code - this is less efficient and jitters the view
 		// newConfigSw, newLabel := genConfigView()
@@ -521,7 +506,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 			}
 
 			updateResults(false)
-			ui.SyncListStore(ws.TX, ws.ConfigListStore)
+			ui.SyncConfigListStore(ws)
 
 			// TODO: old code - less efficient and jittery
 			// nb.RemovePage(c.TAB_CONFIG)
@@ -539,7 +524,7 @@ func primary(application *gtk.Application, filename string) *gtk.ApplicationWind
 		log.Fatal("failed to create 'hide inactive' checkbox:", err)
 	}
 	ui.SetSpacerMarginsGtkCheckBtn(hideInactiveCheckbox)
-	hideInactiveCheckbox.SetActive(HideInactive)
+	hideInactiveCheckbox.SetActive(ws.HideInactive)
 
 	hideInactiveCheckbox.Connect(c.GtkSignalClicked, hideInactiveCheckBoxClickedHandler)
 

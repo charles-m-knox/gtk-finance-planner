@@ -1,8 +1,6 @@
 package state
 
 import (
-	"time"
-
 	"finance-planner/lib"
 
 	"github.com/gotk3/gotk3/gtk"
@@ -15,12 +13,10 @@ import (
 // to be shown from anywhere, should be stored here as pointers.
 type WinState struct {
 	HideInactive        bool
-	CurrentColumnSort   string
+	ConfigColumnSort    string
 	OpenFileName        string
 	StartDate           string
-	StartDateTime       time.Time
 	EndDate             string
-	EndDateTime         time.Time
 	SelectedConfigItems []int
 	ShowMessageDialog   *func(message string)
 	ConfigListStore     *gtk.ListStore

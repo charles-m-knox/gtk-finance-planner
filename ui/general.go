@@ -48,10 +48,10 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 				return false
 			})
 			updateResults()
-			// note: calling SyncListStore is unnecessary here, because the
+			// note: calling SyncConfigListStore is unnecessary here, because the
 			// above listStore.ForEach query actually syncs it for us. Also,
-			// calling SyncListStore actually causes some annoying UI behavior.
-			// err := SyncListStore(txs, listStore)
+			// calling SyncConfigListStore actually causes some annoying UI behavior.
+			// err := SyncConfigListStore(txs, listStore)
 			// if err != nil {
 			// 	log.Printf("failed to sync list store: %v", err.Error())
 			// }
@@ -68,10 +68,10 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 				return false
 			})
 			updateResults()
-			// note: calling SyncListStore is unnecessary here, because the
+			// note: calling SyncConfigListStore is unnecessary here, because the
 			// above listStore.ForEach query actually syncs it for us. Also,
-			// calling SyncListStore actually causes some annoying UI behavior.
-			// err := SyncListStore(txs, listStore)
+			// calling SyncConfigListStore actually causes some annoying UI behavior.
+			// err := SyncConfigListStore(txs, listStore)
 			// if err != nil {
 			// 	log.Printf("failed to sync list store: %v", err.Error())
 			// }
@@ -89,12 +89,12 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 	return column, nil
 }
 
-func ProcessInitialConfigLoad(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName string, userTX *[]lib.TX) {
-	if openFileName != "" {
+func ProcessInitialConfigLoad(win *gtk.ApplicationWindow, openFileName *string, userTX *[]lib.TX) {
+	if *openFileName != "" {
 		var err error
-		*userTX, err = lib.LoadConfig(openFileName)
+		*userTX, err = lib.LoadConfig(*openFileName)
 		if err != nil {
-			ConfigLoadErrorPromptFlow(win, openFileName, userTX)
+			ConfigLoadErrorPromptFlow(win, *openFileName, userTX)
 		}
 	}
 
@@ -108,8 +108,7 @@ func ProcessInitialConfigLoad(win *gtk.ApplicationWindow, header *gtk.HeaderBar,
 			Frequency: "WEEKLY",
 			Interval:  1,
 		}}
-		header.SetSubtitle(fmt.Sprintf("%v*", openFileName))
-		EmptyConfigLoadSuccessDialog(win, openFileName)
+		EmptyConfigLoadSuccessDialog(win, *openFileName)
 	}
 }
 
