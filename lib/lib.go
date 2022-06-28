@@ -690,3 +690,74 @@ func GetNextSort(current, next string) string {
 
 	return fmt.Sprintf("%v%v", next, c.Asc)
 }
+
+// ValidateTransactions asserts that every TX definition has a unique Order
+// field.
+// TODO: Stretch goal - assert that every TX definition is numerically ordered
+// without any gaps. These gaps can occur when deleting/cloning/adding.
+// One possible approach might be to just simply iterate through the list,
+// starting from Order=1, and then alter any values that are not immediately
+// accessible by iterating to the next integer.
+func ValidateTransactions(tx *[]TX) error {
+	missingFirst := false
+	hasDuplicate := false
+	outOfSequence := false
+	sequenceFixes := make(map[int]int)
+	uniques := make(map[int]int)
+	msg := new(strings.Builder)
+
+	// create a copy of the transactions so we don't alter the original yet
+	tmpTX := *tx
+
+	// start by sorting the TX by Order
+	sort.SliceStable(tmpTX, func(i, j int) bool {
+		return (tmpTX)[j].Order > (tmpTX)[i].Order
+	})
+
+	// iterate through the list and assert that i is incremental
+	prev := -1
+	for i, t := range tmpTX {
+		// assert that the first TX has a value of Order=1
+		if i == 0 {
+			if t.Order != 1 {
+				missingFirst = true
+				msg.WriteString("First value does not have Order=1. ")
+			}
+		}
+
+		// assert that each TX sequentially follows the next
+		if t.Order != prev+2 {
+			sequenceFixes[i] = prev + 1
+			outOfSequence = true
+			msg.WriteString(
+				fmt.Sprintf(
+					"Index %v has out of sequence order=%v that should be %v. ",
+					i,
+					t.Order,
+					sequenceFixes[i],
+				),
+			)
+		}
+
+		// assert that there are no duplicate Order values
+		uniques[t.Order] += 1
+		if uniques[t.Order] > 1 {
+			hasDuplicate = true
+			msg.WriteString(
+				fmt.Sprintf(
+					"The Order=%v value is duplicated at least %v times. ",
+					t.Order,
+					uniques[t.Order],
+				),
+			)
+		}
+
+		prev += 1
+	}
+
+	if hasDuplicate || outOfSequence || missingFirst {
+		return fmt.Errorf("%v", msg.String())
+	}
+
+	return nil
+}

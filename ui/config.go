@@ -269,6 +269,10 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 
 	ws.ConfigListStore.ForEach(iterFn)
 	UpdateResults(ws, false)
+	err := lib.ValidateTransactions(ws.TX)
+	if err != nil {
+		log.Printf("config change warning: %v", err.Error())
+	}
 }
 
 func SetConfigSortColumn(ws *state.WinState, column int) {
