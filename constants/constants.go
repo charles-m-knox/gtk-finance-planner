@@ -23,10 +23,12 @@ const (
 	BalanceInputPlaceholderText = "$500.00 - Enter a balance to start with."
 	FullGridWidth               = 3
 
-	GtkSignalClicked  = "clicked"
-	GtkSignalActivate = "activate"
-	GtkSignalChanged  = "changed"
-	GtkSignalFocusOut = "focus-out-event"
+	GtkSignalClicked      = "clicked"
+	GtkSignalActivate     = "activate"
+	GtkSignalChanged      = "changed"
+	GtkSignalFocusOut     = "focus-out-event"
+	GtkSignalEditingStart = "editing-started"
+	GtkSignalEdited       = "edited"
 
 	ActionClose                   = "close"
 	ActionNew                     = "new"

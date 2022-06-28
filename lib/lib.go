@@ -659,3 +659,34 @@ func MarkupColorSequence(input []string) string {
 	}
 	return result.String()
 }
+
+// GetNextSort takes the current sort, which is typically something like
+// OrderAsc, OrderDesc, or None, and attempts to do some basic string parsing
+// to figure out what the next sort should be. The cycle is None -> Asc -> Desc.
+// Note that if the `next` argument is a different column than the `current`
+// argument (after stripping away Asc/Desc), the resulting sort will always be
+// the `next` column with Asc ordering.
+func GetNextSort(current, next string) string {
+	if current == c.None {
+		return fmt.Sprintf("%v%v", next, c.Asc)
+	}
+
+	base := strings.TrimSuffix(current, c.Desc)
+	base = strings.TrimSuffix(base, c.Asc)
+
+	if strings.HasSuffix(current, c.Desc) {
+		if base != next {
+			return fmt.Sprintf("%v%v", next, c.Asc)
+		}
+		return c.None
+	}
+
+	if strings.HasSuffix(current, c.Asc) {
+		if base != next {
+			return fmt.Sprintf("%v%v", next, c.Asc)
+		}
+		return fmt.Sprintf("%v%v", base, c.Desc)
+	}
+
+	return fmt.Sprintf("%v%v", next, c.Asc)
+}

@@ -69,8 +69,8 @@ func AddConfItem(ws *state.WinState) {
 func CloneConfItem(ws *state.WinState) {
 	if len(ws.SelectedConfigItems) > 0 {
 		log.Println(ws.SelectedConfigItems)
-		// for _, i := range ws.SelectedConfigItems {
 		for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
+			// TODO: should this be len(*ws.TX) - 1?
 			if ws.SelectedConfigItems[i] > len(*ws.TX) {
 				return
 			}
@@ -86,11 +86,12 @@ func CloneConfItem(ws *state.WinState) {
 	}
 }
 
-func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
-	// gets an iterator for a new row at the end of the list store
-	iter := listStore.Append()
-
-	rowData := []interface{}{
+// GetTXAsRow builds a GTK treeview-compatible set of fields & columns for a
+// provided TX definition.
+// TODO: refactor this to be more flexible. For example, it would be nice to
+// be able to hide/show some columns. This could maybe be done with a map.
+func GetTXAsRow(tx *lib.TX) (cells []interface{}, columns []int) {
+	cells = []interface{}{
 		tx.Order,
 		tx.MarkupCurrency(lib.CurrencyMarkup(tx.Amount)),
 		tx.Active,
@@ -109,13 +110,22 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 		tx.MarkupText(tx.Note),
 	}
 
-	columnsIndexes := []int{}
-	for i := range rowData {
-		columnsIndexes = append(columnsIndexes, i)
+	columns = []int{}
+	for i := range cells {
+		columns = append(columns, i)
 	}
 
+	return cells, columns
+}
+
+func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
+	// gets an iterator for a new row at the end of the list store
+	iter := listStore.Append()
+
+	cells, columns := GetTXAsRow(tx)
+
 	// Set the contents of the list store row that the iterator represents
-	err := listStore.Set(iter, columnsIndexes, rowData)
+	err := listStore.Set(iter, columns, cells)
 	if err != nil {
 		return fmt.Errorf("unable to add config tree row: %v", err.Error())
 	}
@@ -131,10 +141,7 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 // like "1:2:5" or simply "1", depending on how the tree is constructed.
 func ConfigChange(ws *state.WinState, path string, column int, newValue interface{}) {
 	// start by iterating through the list store
-
 	iterFn := func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-		// log.Printf("order changed, searchPath=%v, path=%v", searchPath.String(), path)
-
 		if searchPath.String() == path {
 			// key off of the Order column, which contains the unique identifier
 			// TODO: elsewhere you need to add a function to assert that Order
@@ -174,25 +181,15 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 							)
 						}
 						(*ws.TX)[i].Order = int(nv)
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_ORDER}, []interface{}{nv})
-
 					} else if column == c.COLUMN_AMOUNT {
 						nv := int(lib.ParseDollarAmount(newValue.(string), false))
 						(*ws.TX)[i].Amount = nv
-						formatted := (*ws.TX)[i].MarkupText(lib.CurrencyMarkup(nv))
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_AMOUNT}, []interface{}{formatted})
-
 					} else if column == c.COLUMN_ACTIVE {
 						nv := !(newValue.(bool))
 						(*ws.TX)[i].Active = nv
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_ACTIVE}, []interface{}{nv})
-
 					} else if column == c.COLUMN_NAME {
 						nv := newValue.(string)
 						(*ws.TX)[i].Name = nv
-						mnv := (*ws.TX)[i].MarkupText(nv)
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_NAME}, []interface{}{mnv})
-
 					} else if column == c.COLUMN_FREQUENCY {
 						// TODO: refactor for unit testability
 						nv := strings.ToUpper(strings.TrimSpace(newValue.(string)))
@@ -212,21 +209,19 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 						}
 
 						(*ws.TX)[i].Frequency = nv
-						mnv := (*ws.TX)[i].MarkupText(nv)
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_FREQUENCY}, []interface{}{mnv})
-
 					} else if column == c.COLUMN_INTERVAL {
 						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
 						if err != nil {
-							log.Printf("failed to convert interval %v to int: %v", newValue, err.Error())
+							log.Printf(
+								"failed to convert interval %v to int: %v",
+								newValue,
+								err.Error(),
+							)
 						}
 						if nv <= 0 {
 							nv = 1
 						}
 						(*ws.TX)[i].Interval = int(nv)
-						mnv := (*ws.TX)[i].MarkupText(fmt.Sprint(nv))
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_INTERVAL}, []interface{}{mnv})
-
 					} else if column == c.COLUMN_STARTS {
 						nvs := newValue.(string)
 						yr, mo, day := lib.ParseYearMonthDateString(
@@ -235,10 +230,6 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 						(*ws.TX)[i].StartsYear = yr
 						(*ws.TX)[i].StartsMonth = mo
 						(*ws.TX)[i].StartsDay = day
-						nv := fmt.Sprintf("%v-%v-%v", yr, mo, day)
-						mnv := (*ws.TX)[i].MarkupText(nv)
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_STARTS}, []interface{}{mnv})
-
 					} else if column == c.COLUMN_ENDS {
 						// TODO: refactor similar code from above case
 						nvs := newValue.(string)
@@ -248,30 +239,23 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 						(*ws.TX)[i].EndsYear = yr
 						(*ws.TX)[i].EndsMonth = mo
 						(*ws.TX)[i].EndsDay = day
-						nv := fmt.Sprintf("%v-%v-%v", yr, mo, day)
-						mnv := (*ws.TX)[i].MarkupText(nv)
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_ENDS}, []interface{}{mnv})
-
 					} else if lib.IsWeekday(c.ConfigColumns[column]) {
 						// TODO: make this a little more polished; it probably
 						// doesn't need to be this involved
 						weekday := lib.WeekdayIndex[c.ConfigColumns[column]]
 						(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
-						nv := (*ws.TX)[i].DoesTXHaveWeekday(weekday)
-						ws.ConfigListStore.Set(iter, []int{column}, []interface{}{nv})
-
 					} else if column == c.COLUMN_NOTE {
 						nv := newValue.(string)
 						(*ws.TX)[i].Name = nv
-						mnv := (*ws.TX)[i].MarkupText(nv)
-						ws.ConfigListStore.Set(iter, []int{c.COLUMN_NOTE}, []interface{}{mnv})
-
 					} else {
 						log.Printf(
 							"warning: column id %v was modified, but there is no case to handle it",
 							column,
 						)
 					}
+
+					cells, columns := GetTXAsRow(&(*ws.TX)[i])
+					ws.ConfigListStore.Set(iter, columns, cells)
 
 					break
 				}
@@ -287,51 +271,73 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 	UpdateResults(ws, false)
 }
 
+func SetConfigSortColumn(ws *state.WinState, column int) {
+	columnStr := c.ConfigColumns[column]
+	next := lib.GetNextSort(ws.ConfigColumnSort, columnStr)
+
+	ws.ConfigColumnSort = next
+	UpdateResults(ws, false)
+	err := SyncConfigListStore(ws)
+	if err != nil {
+		// TODO: create a "show message" function pointer and call it here
+		// if it's not nil?
+		log.Printf("failed to sync list store: %v", err.Error())
+	}
+}
+
 // getOrderColumn builds out an "Order" column, which is an integer column
 // that allows the user to control an unsorted default order of recurring
 // transactions in the config view
 func getOrderColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
-	orderCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
-	}
-	orderCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		ConfigChange(ws, path, c.COLUMN_ORDER, newText)
-	}
 	orderCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create amount column renderer: %v", err.Error())
 	}
+
+	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(
+		c.ColumnOrder,
+		orderCellRenderer,
+		"text",
+		c.COLUMN_ORDER,
+	)
+	if err != nil {
+		return tvc, fmt.Errorf(
+			"unable to create amount cell column: %v",
+			err.Error(),
+		)
+	}
+
+	orderColumnBtn, err := orderColumn.GetButton()
+	if err != nil {
+		log.Printf(
+			"failed to get active column header button: %v",
+			err.Error(),
+		)
+	}
+
+	orderCellEditingStarted := func(
+		a *gtk.CellRendererText,
+		e *gtk.CellEditable,
+		path string,
+	) {
+		log.Println(c.GtkSignalEditingStart, a, path)
+	}
+
+	orderCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
+		ConfigChange(ws, path, c.COLUMN_ORDER, newText)
+	}
 	orderCellRenderer.SetProperty("editable", true)
 	orderCellRenderer.SetVisible(true)
-	orderCellRenderer.Connect("editing-started", orderCellEditingStarted)
-	orderCellRenderer.Connect("edited", orderCellEditingFinished)
-	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnOrder, orderCellRenderer, "text", c.COLUMN_ORDER)
-	if err != nil {
-		return tvc, fmt.Errorf("unable to create amount cell column: %v", err.Error())
-	}
+
+	orderCellRenderer.Connect(c.GtkSignalEditingStart, orderCellEditingStarted)
+	orderCellRenderer.Connect(c.GtkSignalEdited, orderCellEditingFinished)
+
 	orderColumn.SetResizable(true)
 	orderColumn.SetClickable(true)
 	orderColumn.SetVisible(true)
 
-	orderColumnBtn, err := orderColumn.GetButton()
-	if err != nil {
-		log.Printf("failed to get active column header button: %v", err.Error())
-	}
 	orderColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnOrder, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnOrder, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnOrder, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnOrder, c.Asc)
-		}
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			// TODO: create a "show message" function pointer and call it here
-			// if it's not nil?
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_ORDER)
 	})
 
 	return orderColumn, nil
@@ -342,7 +348,7 @@ func getOrderColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // be parsed into currency and displayed as currency as well
 func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	amtCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	amtCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_AMOUNT, newText)
@@ -353,11 +359,14 @@ func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	}
 	amtCellRenderer.SetProperty("editable", true)
 	amtCellRenderer.SetVisible(true)
-	amtCellRenderer.Connect("editing-started", amtCellEditingStarted)
-	amtCellRenderer.Connect("edited", amtCellEditingFinished)
+	amtCellRenderer.Connect(c.GtkSignalEditingStart, amtCellEditingStarted)
+	amtCellRenderer.Connect(c.GtkSignalEdited, amtCellEditingFinished)
 	amtColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnAmount, amtCellRenderer, "markup", c.COLUMN_AMOUNT)
 	if err != nil {
-		return tvc, fmt.Errorf("unable to create amount cell column: %v", err.Error())
+		return tvc, fmt.Errorf(
+			"unable to create amount cell column: %v",
+			err.Error(),
+		)
 	}
 	amtColumn.SetResizable(true)
 	amtColumn.SetClickable(true)
@@ -368,19 +377,7 @@ func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Printf("failed to get active column header button: %v", err.Error())
 	}
 	amtColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnAmount, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnAmount, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnAmount, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnAmount, c.Asc)
-		}
-		log.Printf("amount column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_AMOUNT)
 	})
 
 	return amtColumn, nil
@@ -408,19 +405,7 @@ func getActiveColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Printf("failed to get active column header button: %v", err.Error())
 	}
 	activeColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnActive, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnActive, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnActive, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnActive, c.Asc)
-		}
-		log.Printf("active column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_ACTIVE)
 	})
 
 	return activeColumn, nil
@@ -430,7 +415,7 @@ func getActiveColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // allows users to set the name of a recurring transaction
 func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	nameCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	nameCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_NAME, newText)
@@ -441,8 +426,8 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	}
 	nameCellRenderer.SetProperty("editable", true)
 	nameCellRenderer.SetVisible(true)
-	nameCellRenderer.Connect("editing-started", nameCellEditingStarted)
-	nameCellRenderer.Connect("edited", nameCellEditingFinished)
+	nameCellRenderer.Connect(c.GtkSignalEditingStart, nameCellEditingStarted)
+	nameCellRenderer.Connect(c.GtkSignalEdited, nameCellEditingFinished)
 	nameColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnName, nameCellRenderer, "markup", c.COLUMN_NAME)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Name cell column: %v", err.Error())
@@ -455,19 +440,7 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Printf("failed to get name column header button: %v", err.Error())
 	}
 	nameColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnName, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnName, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnName, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnName, c.Asc)
-		}
-		log.Printf("name column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_NAME)
 	})
 
 	return nameColumn, nil
@@ -479,7 +452,7 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // users to just simply type "MONTHLY"/"YEARLY"/"WEEKLY"
 func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	freqCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	freqCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_FREQUENCY, newText)
@@ -490,8 +463,8 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 	}
 	freqCellRenderer.SetProperty("editable", true)
 	freqCellRenderer.SetVisible(true)
-	freqCellRenderer.Connect("editing-started", freqCellEditingStarted)
-	freqCellRenderer.Connect("edited", freqCellEditingFinished)
+	freqCellRenderer.Connect(c.GtkSignalEditingStart, freqCellEditingStarted)
+	freqCellRenderer.Connect(c.GtkSignalEdited, freqCellEditingFinished)
 	freqColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnFrequency, freqCellRenderer, "markup", c.COLUMN_FREQUENCY)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Frequency cell column: %v", err.Error())
@@ -505,19 +478,7 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 		log.Printf("failed to get frequency column header button: %v", err.Error())
 	}
 	freqColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnFrequency, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnFrequency, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnFrequency, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnFrequency, c.Asc)
-		}
-		log.Printf("frequency column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_FREQUENCY)
 	})
 
 	return freqColumn, nil
@@ -534,7 +495,7 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 // for more unit testability
 func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	intervalCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	intervalCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_INTERVAL, newText)
@@ -545,8 +506,8 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 	}
 	intervalCellRenderer.SetProperty("editable", true)
 	intervalCellRenderer.SetVisible(true)
-	intervalCellRenderer.Connect("editing-started", intervalCellEditingStarted)
-	intervalCellRenderer.Connect("edited", intervalCellEditingFinished)
+	intervalCellRenderer.Connect(c.GtkSignalEditingStart, intervalCellEditingStarted)
+	intervalCellRenderer.Connect(c.GtkSignalEdited, intervalCellEditingFinished)
 	intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnInterval, intervalCellRenderer, "markup", c.COLUMN_INTERVAL)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Interval cell column: %v", err.Error())
@@ -559,19 +520,7 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 		log.Printf("failed to get interval column header button: %v", err.Error())
 	}
 	intervalColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnInterval, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnInterval, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnInterval, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnInterval, c.Asc)
-		}
-		log.Printf("interval column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_INTERVAL)
 	})
 
 	return intervalColumn, nil
@@ -582,7 +531,7 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 // TODO: refactoring and cleanup
 func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	startsCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	startsCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_STARTS, newText)
@@ -593,8 +542,8 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	}
 	startsCellRenderer.SetProperty("editable", true)
 	startsCellRenderer.SetVisible(true)
-	startsCellRenderer.Connect("editing-started", startsCellEditingStarted)
-	startsCellRenderer.Connect("edited", startsCellEditingFinished)
+	startsCellRenderer.Connect(c.GtkSignalEditingStart, startsCellEditingStarted)
+	startsCellRenderer.Connect(c.GtkSignalEdited, startsCellEditingFinished)
 	startsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnStarts, startsCellRenderer, "markup", c.COLUMN_STARTS)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Starts cell column: %v", err.Error())
@@ -607,19 +556,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Printf("failed to get starts column header button: %v", err.Error())
 	}
 	startsColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnStarts, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnStarts, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnStarts, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnStarts, c.Asc)
-		}
-		log.Printf("starts column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_STARTS)
 	})
 
 	return startsColumn, nil
@@ -630,7 +567,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // TODO: refactoring and cleanup
 func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	endsCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	endsCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_ENDS, newText)
@@ -641,8 +578,8 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	}
 	endsCellRenderer.SetProperty("editable", true)
 	endsCellRenderer.SetVisible(true)
-	endsCellRenderer.Connect("editing-started", endsCellEditingStarted)
-	endsCellRenderer.Connect("edited", endsCellEditingFinished)
+	endsCellRenderer.Connect(c.GtkSignalEditingStart, endsCellEditingStarted)
+	endsCellRenderer.Connect(c.GtkSignalEdited, endsCellEditingFinished)
 	endsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnEnds, endsCellRenderer, "markup", c.COLUMN_ENDS)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Ends cell column: %v", err.Error())
@@ -655,19 +592,7 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Printf("failed to get ends column header button: %v", err.Error())
 	}
 	endsColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnEnds, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnEnds, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnEnds, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnEnds, c.Asc)
-		}
-		log.Printf("ends column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_ENDS)
 	})
 
 	return endsColumn, nil
@@ -680,7 +605,7 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	// notes column
 	notesCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println("editing-started", a, path)
+		log.Println(c.GtkSignalEditingStart, a, path)
 	}
 	notesCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, c.COLUMN_NOTE, newText)
@@ -691,8 +616,8 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	}
 	notesCellRenderer.SetProperty("editable", true)
 	notesCellRenderer.SetVisible(true)
-	notesCellRenderer.Connect("editing-started", notesCellEditingStarted)
-	notesCellRenderer.Connect("edited", notesCellEditingFinished)
+	notesCellRenderer.Connect(c.GtkSignalEditingStart, notesCellEditingStarted)
+	notesCellRenderer.Connect(c.GtkSignalEdited, notesCellEditingFinished)
 	notesColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnNote, notesCellRenderer, "markup", c.COLUMN_NOTE)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Notes cell column: %v", err.Error())
@@ -705,19 +630,7 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Printf("failed to get notes column header button: %v", err.Error())
 	}
 	notesColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-		if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnNote, c.Asc) {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnNote, c.Desc)
-		} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnNote, c.Desc) {
-			ws.ConfigColumnSort = c.None
-		} else {
-			ws.ConfigColumnSort = fmt.Sprintf("%v%v", c.ColumnNote, c.Asc)
-		}
-		log.Printf("notes column clicked, sort column: %v", ws.ConfigColumnSort)
-		UpdateResults(ws, false)
-		err := SyncConfigListStore(ws)
-		if err != nil {
-			log.Printf("failed to sync list store: %v", err.Error())
-		}
+		SetConfigSortColumn(ws, c.COLUMN_NOTE)
 	})
 
 	return notesColumn, nil
@@ -789,20 +702,8 @@ func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 		if err != nil {
 			log.Printf("failed to get frequency column header button: %v", err.Error())
 		}
-		weekdayColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", weekday, c.Asc) {
-				ws.ConfigColumnSort = fmt.Sprintf("%v%v", weekday, c.Desc)
-			} else if ws.ConfigColumnSort == fmt.Sprintf("%v%v", weekday, c.Desc) {
-				ws.ConfigColumnSort = c.None
-			} else {
-				ws.ConfigColumnSort = fmt.Sprintf("%v%v", weekday, c.Asc)
-			}
-			log.Printf("%v column clicked, sort column: %v, %v", weekday, ws.ConfigColumnSort, weekdayIndex)
-			UpdateResults(ws, false)
-			err := SyncConfigListStore(ws)
-			if err != nil {
-				log.Printf("failed to sync list store: %v", err.Error())
-			}
+		weekdayColumnBtn.ToWidget().Connect(c.GtkSignalClicked, func(g *gtk.Button) {
+			SetConfigSortColumn(ws, c.COLUMN_MONDAY+weekdayIndex)
 		})
 		treeView.AppendColumn(weekdayColumn)
 	}
