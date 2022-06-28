@@ -51,7 +51,6 @@ func DelConfItem(ws *state.WinState) {
 }
 
 func AddConfItem(ws *state.WinState) {
-	// nb.RemovePage(c.TAB_CONFIG)
 	// TODO: create/use helper function that generates new TX instances
 	// TODO: refactor
 	*ws.TX = append(*ws.TX, lib.TX{
@@ -65,12 +64,6 @@ func AddConfItem(ws *state.WinState) {
 
 	UpdateResults(ws, false)
 	SyncConfigListStore(ws)
-
-	// old code - this is less efficient and jitters the view
-	// newConfigSw, newLabel := genConfigView()
-	// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-	// win.ShowAll()
-	// nb.SetCurrentPage(c.TAB_CONFIG)
 }
 
 func CloneConfItem(ws *state.WinState) {
@@ -90,16 +83,7 @@ func CloneConfItem(ws *state.WinState) {
 
 		UpdateResults(ws, false)
 		SyncConfigListStore(ws)
-
-		// TODO: old code - less efficient and jittery
-		// nb.RemovePage(c.TAB_CONFIG)
-		// newConfigSw, newLabel := genConfigView()
-		// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-		// ui.UpdateResults(ws, false)
-		// win.ShowAll()
-		// nb.SetCurrentPage(c.TAB_CONFIG)
 	}
-	// ws.SelectedConfigItems = []int{}
 }
 
 func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
@@ -107,7 +91,7 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 	iter := listStore.Append()
 
 	rowData := []interface{}{
-		tx.MarkupText(fmt.Sprint(tx.Order)),
+		tx.Order,
 		tx.MarkupCurrency(lib.CurrencyMarkup(tx.Amount)),
 		tx.Active,
 		tx.MarkupText(tx.Name),
@@ -139,6 +123,170 @@ func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
 	return nil
 }
 
+// ConfigChange is triggered when the user makes a change in the config tree
+// view. This function is responsible for finding the underlying TX definition
+// that corresponds to the tree view UI item that was changed, by keying off of
+// the Order column (which is basically a unique ID). The `path` parameter is
+// the value provided from the cell edit event, which is typically something
+// like "1:2:5" or simply "1", depending on how the tree is constructed.
+func ConfigChange(ws *state.WinState, path string, column int, newValue interface{}) {
+	// start by iterating through the list store
+
+	iterFn := func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		// log.Printf("order changed, searchPath=%v, path=%v", searchPath.String(), path)
+
+		if searchPath.String() == path {
+			// key off of the Order column, which contains the unique identifier
+			// TODO: elsewhere you need to add a function to assert that Order
+			// is unique
+			gv, err := ws.ConfigListStore.GetValue(iter, c.COLUMN_ORDER)
+			if err != nil {
+				log.Printf("failed to get value from config list store: %v", err.Error())
+			}
+
+			// convert the value to an int
+			val, err := gv.GoValue()
+			if err != nil {
+				log.Printf("failed to get val string: %v", err.Error())
+			}
+
+			valInt := val.(int)
+			// TODO: clean this up
+			log.Printf("order from list store=%v", valInt)
+
+			// now that we've found the unique ID for this TX definition, we can
+			// proceed to find the actual TX definition
+			for i := range *ws.TX {
+				if (*ws.TX)[i].Order == valInt {
+					// now we've found the actual TX definition and we can
+					// make changes to the TX and propagate it to the ListStore
+					if column == c.COLUMN_ORDER {
+						// TODO: add function to enforce uniqueness for all
+						// elements and prevent the change if non-unique
+						// TODO: validate that the newValue is of int type
+						// before unsafe type assertion
+						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
+						if err != nil {
+							log.Printf(
+								"failed to convert interval %v to int: %v",
+								newValue,
+								err.Error(),
+							)
+						}
+						(*ws.TX)[i].Order = int(nv)
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_ORDER}, []interface{}{nv})
+
+					} else if column == c.COLUMN_AMOUNT {
+						nv := int(lib.ParseDollarAmount(newValue.(string), false))
+						(*ws.TX)[i].Amount = nv
+						formatted := (*ws.TX)[i].MarkupText(lib.CurrencyMarkup(nv))
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_AMOUNT}, []interface{}{formatted})
+
+					} else if column == c.COLUMN_ACTIVE {
+						nv := !(newValue.(bool))
+						(*ws.TX)[i].Active = nv
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_ACTIVE}, []interface{}{nv})
+
+					} else if column == c.COLUMN_NAME {
+						nv := newValue.(string)
+						(*ws.TX)[i].Name = nv
+						mnv := (*ws.TX)[i].MarkupText(nv)
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_NAME}, []interface{}{mnv})
+
+					} else if column == c.COLUMN_FREQUENCY {
+						// TODO: refactor for unit testability
+						nv := strings.ToUpper(strings.TrimSpace(newValue.(string)))
+						if nv == "Y" {
+							nv = "YEARLY"
+						}
+						if nv == "W" {
+							nv = "WEEKLY"
+						}
+						if nv == "M" {
+							nv = "MONTHLY"
+						}
+						if nv != "WEEKLY" && nv != "MONTHLY" && nv != "YEARLY" {
+							// TODO: invalid input message dialog
+							log.Print("unacceptable value provided; please enter y/m/w/monthly/weekly/yearly")
+							break
+						}
+
+						(*ws.TX)[i].Frequency = nv
+						mnv := (*ws.TX)[i].MarkupText(nv)
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_FREQUENCY}, []interface{}{mnv})
+
+					} else if column == c.COLUMN_INTERVAL {
+						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
+						if err != nil {
+							log.Printf("failed to convert interval %v to int: %v", newValue, err.Error())
+						}
+						if nv <= 0 {
+							nv = 1
+						}
+						(*ws.TX)[i].Interval = int(nv)
+						mnv := (*ws.TX)[i].MarkupText(fmt.Sprint(nv))
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_INTERVAL}, []interface{}{mnv})
+
+					} else if column == c.COLUMN_STARTS {
+						nvs := newValue.(string)
+						yr, mo, day := lib.ParseYearMonthDateString(
+							strings.TrimSpace(nvs),
+						)
+						(*ws.TX)[i].StartsYear = yr
+						(*ws.TX)[i].StartsMonth = mo
+						(*ws.TX)[i].StartsDay = day
+						nv := fmt.Sprintf("%v-%v-%v", yr, mo, day)
+						mnv := (*ws.TX)[i].MarkupText(nv)
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_STARTS}, []interface{}{mnv})
+
+					} else if column == c.COLUMN_ENDS {
+						// TODO: refactor similar code from above case
+						nvs := newValue.(string)
+						yr, mo, day := lib.ParseYearMonthDateString(
+							strings.TrimSpace(nvs),
+						)
+						(*ws.TX)[i].EndsYear = yr
+						(*ws.TX)[i].EndsMonth = mo
+						(*ws.TX)[i].EndsDay = day
+						nv := fmt.Sprintf("%v-%v-%v", yr, mo, day)
+						mnv := (*ws.TX)[i].MarkupText(nv)
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_ENDS}, []interface{}{mnv})
+
+					} else if lib.IsWeekday(c.ConfigColumns[column]) {
+						// TODO: make this a little more polished; it probably
+						// doesn't need to be this involved
+						weekday := lib.WeekdayIndex[c.ConfigColumns[column]]
+						(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
+						nv := (*ws.TX)[i].DoesTXHaveWeekday(weekday)
+						ws.ConfigListStore.Set(iter, []int{column}, []interface{}{nv})
+
+					} else if column == c.COLUMN_NOTE {
+						nv := newValue.(string)
+						(*ws.TX)[i].Name = nv
+						mnv := (*ws.TX)[i].MarkupText(nv)
+						ws.ConfigListStore.Set(iter, []int{c.COLUMN_NOTE}, []interface{}{mnv})
+
+					} else {
+						log.Printf(
+							"warning: column id %v was modified, but there is no case to handle it",
+							column,
+						)
+					}
+
+					break
+				}
+			}
+
+			return true
+		}
+
+		return false
+	}
+
+	ws.ConfigListStore.ForEach(iterFn)
+	UpdateResults(ws, false)
+}
+
 // getOrderColumn builds out an "Order" column, which is an integer column
 // that allows the user to control an unsorted default order of recurring
 // transactions in the config view
@@ -147,25 +295,7 @@ func getOrderColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Println("editing-started", a, path)
 	}
 	orderCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			// TODO: show error dialog
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		newValue, err := strconv.ParseInt(newText, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse user input: %v", err.Error())
-		}
-		(*ws.TX)[i].Order = int(newValue)
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_ORDER}, []interface{}{newValue})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_ORDER, newText)
 	}
 	orderCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -175,7 +305,7 @@ func getOrderColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	orderCellRenderer.SetVisible(true)
 	orderCellRenderer.Connect("editing-started", orderCellEditingStarted)
 	orderCellRenderer.Connect("edited", orderCellEditingFinished)
-	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnOrder, orderCellRenderer, "markup", c.COLUMN_ORDER)
+	orderColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnOrder, orderCellRenderer, "text", c.COLUMN_ORDER)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create amount cell column: %v", err.Error())
 	}
@@ -215,24 +345,7 @@ func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Println("editing-started", a, path)
 	}
 	amtCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		log.Println("edited", a, path, newText)
-		newValue := int(lib.ParseDollarAmount(newText, false))
-		log.Println(newText, newValue)
-		(*ws.TX)[i].Amount = newValue
-		formattedNewValue := lib.FormatAsCurrency(newValue)
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_AMOUNT}, []interface{}{formattedNewValue})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_AMOUNT, newText)
 	}
 	amtCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -320,22 +433,7 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Println("editing-started", a, path)
 	}
 	nameCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		log.Println("edited", a, path, newText)
-		newValue := strings.TrimSpace(newText)
-		(*ws.TX)[i].Name = newValue
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_NAME}, []interface{}{newValue})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_NAME, newText)
 	}
 	nameCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -384,34 +482,7 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 		log.Println("editing-started", a, path)
 	}
 	freqCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		log.Println("edited", a, path, newText)
-		newValue := strings.ToUpper(strings.TrimSpace(newText))
-		if newValue == "Y" {
-			newValue = "YEARLY"
-		}
-		if newValue == "W" {
-			newValue = "WEEKLY"
-		}
-		if newValue == "M" {
-			newValue = "MONTHLY"
-		}
-		if newValue != "WEEKLY" && newValue != "MONTHLY" && newValue != "YEARLY" {
-			return
-		}
-		(*ws.TX)[i].Frequency = newValue
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_FREQUENCY}, []interface{}{newValue})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_FREQUENCY, newText)
 	}
 	freqCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -466,31 +537,7 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 		log.Println("editing-started", a, path)
 	}
 	intervalCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		log.Println("edited", a, path, newText)
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		log.Println("edited", a, path, newText)
-		newValue, err := strconv.ParseInt(newText, 10, 64)
-		if err != nil {
-			log.Println("failed to parse interval integer", err.Error())
-			return
-		}
-		log.Println("edited", a, path, newText)
-		if newValue < 0 {
-			return
-		}
-		(*ws.TX)[i].Interval = int(newValue)
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_INTERVAL}, []interface{}{newValue})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_INTERVAL, newText)
 	}
 	intervalCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -538,28 +585,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Println("editing-started", a, path)
 	}
 	startsCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		log.Println("edited", a, path, newText)
-		yr, mo, day := lib.ParseYearMonthDateString(strings.TrimSpace(newText))
-		if err != nil {
-			log.Println("failed to parse interval integer", err.Error())
-			return
-		}
-		(*ws.TX)[i].StartsYear = yr
-		(*ws.TX)[i].StartsMonth = mo
-		(*ws.TX)[i].StartsDay = day
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_STARTS}, []interface{}{fmt.Sprintf("%v-%v-%v", yr, mo, day)})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_STARTS, newText)
 	}
 	startsCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -607,28 +633,7 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Println("editing-started", a, path)
 	}
 	endsCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		log.Println("edited", a, path, newText)
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		yr, mo, day := lib.ParseYearMonthDateString(strings.TrimSpace(newText))
-		if err != nil {
-			log.Println("failed to parse interval integer", err.Error())
-			return
-		}
-		(*ws.TX)[i].EndsYear = yr
-		(*ws.TX)[i].EndsMonth = mo
-		(*ws.TX)[i].EndsDay = day
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_ENDS}, []interface{}{fmt.Sprintf("%v-%v-%v", yr, mo, day)})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_ENDS, newText)
 	}
 	endsCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -678,21 +683,7 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 		log.Println("editing-started", a, path)
 	}
 	notesCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
-		log.Println("edited", a, path, newText)
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-		(*ws.TX)[i].Note = newText
-		// push the value to the tree view's list store as well as updating the TX definition
-		ws.ConfigListStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-			if searchPath.String() == path {
-				ws.ConfigListStore.Set(iter, []int{c.COLUMN_NOTE}, []interface{}{newText})
-				return true
-			}
-			return false
-		})
-		UpdateResults(ws, false)
+		ConfigChange(ws, path, c.COLUMN_NOTE, newText)
 	}
 	notesCellRenderer, err := gtk.CellRendererTextNew()
 	if err != nil {
@@ -843,7 +834,7 @@ func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 // that will be shown on our results tree view
 func GetNewConfigListStore() (ls *gtk.ListStore, err error) {
 	ls, err = gtk.ListStoreNew(
-		glib.TYPE_STRING,
+		glib.TYPE_INT,
 		glib.TYPE_STRING,
 		glib.TYPE_BOOLEAN,
 		glib.TYPE_STRING,

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
@@ -65,9 +64,8 @@ func main() {
 func primary(application *gtk.Application, filename string) *state.WinState {
 	// variables stored like this can be accessed via go routines if needed
 	var (
-		nSets = 1
-		err   error
-		ws    *state.WinState
+		err error
+		ws  *state.WinState
 	)
 
 	ws = &state.WinState{
@@ -82,33 +80,6 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 		Results:             &[]lib.Result{},
 		App:                 application,
 	}
-
-	// Native GTK is not thread safe, and thus, gotk3's GTK bindings may not
-	// be used from other goroutines.  Instead, glib.IdleAdd() must be used
-	// to add a function to run in the GTK main loop when it is in an idle
-	// state.
-	//
-	// If the function passed to glib.IdleAdd() returns one argument, and
-	// that argument is a bool, this return value will be used in the same
-	// manner as a native g_idle_add() call.  If this return value is false,
-	// the function will be removed from executing in the GTK main loop's
-	// idle state.  If the return value is true, the function will continue
-	// to execute when the GTK main loop is in this state.
-	idleTextSet := func() bool {
-		// mainBtn.SetLabel(fmt.Sprintf("Set a label %d time(s)!", nSets))
-		log.Printf("go routine %v loops", nSets)
-
-		// Returning false here is unnecessary, as anything but returning true
-		// will remove the function from being called by the GTK main loop.
-		return false
-	}
-	go func() {
-		for {
-			time.Sleep(60 * time.Second)
-			_ = glib.IdleAdd(idleTextSet)
-			nSets++
-		}
-	}()
 
 	// initialize some values
 	ws.ResultsListStore, err = ui.GetNewResultsListStore()

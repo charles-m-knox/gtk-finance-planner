@@ -74,16 +74,6 @@ func UpdateResults(ws *state.WinState, switchTo bool) {
 
 	ws.Header.SetSubtitle(fmt.Sprintf("%v*", ws.OpenFileName))
 
-	// TODO: clear and re-populate the list store instead of removing the
-	// entire tab page
-
-	// nb.RemovePage(c.TAB_RESULTS)
-	// newSw, newLabel, ws.ResultsListStore, err := ui.GenerateResultsTab(&userTX, *ws.Results)
-	// if err != nil {
-	// 	log.Fatalf("failed to generate results tab: %v", err.Error())
-	// }
-	// nb.InsertPage(newSw, newLabel, c.TAB_RESULTS)
-
 	if ws.ResultsListStore != nil {
 		err = SyncResultsListStore(ws.Results, ws.ResultsListStore)
 		if err != nil {

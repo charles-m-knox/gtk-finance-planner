@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"log"
-	"strconv"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
@@ -15,7 +14,7 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListStore, ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
+func createCheckboxColumn(title string, columnID int, radio bool, listStore *gtk.ListStore, ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	cellRenderer, err := gtk.CellRendererToggleNew()
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create checkbox column renderer: %v", err.Error())
@@ -24,63 +23,11 @@ func createCheckboxColumn(title string, id int, radio bool, listStore *gtk.ListS
 	cellRenderer.SetRadio(radio)
 	cellRenderer.SetActivatable(true)
 	cellRenderer.SetVisible(true)
-	// TODO: consider refactoring this a little bit
 	cellRenderer.Connect("toggled", func(a *gtk.CellRendererToggle, path string) {
-		// TODO: using nested structures results in a path that looks
-		// like 1:2:5 -  parse accordingly
-		i, err := strconv.ParseInt(path, 10, 64)
-		if err != nil {
-			log.Printf("failed to parse path \"%v\" as an int: %v", path, err.Error())
-		}
-
-		if lib.IsWeekday(c.ConfigColumns[id]) {
-			weekday := lib.WeekdayIndex[c.ConfigColumns[id]]
-			(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
-
-			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-				if searchPath.String() == path {
-					listStore.Set(
-						iter,
-						[]int{id},
-						[]interface{}{
-							(*ws.TX)[i].DoesTXHaveWeekday(weekday),
-						})
-					return true
-				}
-				return false
-			})
-			UpdateResults(ws, false)
-			// note: calling SyncConfigListStore is unnecessary here, because the
-			// above listStore.ForEach query actually syncs it for us. Also,
-			// calling SyncConfigListStore actually causes some annoying UI behavior.
-			// err := SyncConfigListStore(txs, listStore)
-			// if err != nil {
-			// 	log.Printf("failed to sync list store: %v", err.Error())
-			// }
-		} else if c.ConfigColumns[id] == c.ColumnActive {
-			(*ws.TX)[i].Active = !(*ws.TX)[i].Active
-			listStore.ForEach(func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-				if searchPath.String() == path {
-					listStore.Set(
-						iter,
-						[]int{id},
-						[]interface{}{(*ws.TX)[i].Active})
-					return true
-				}
-				return false
-			})
-			UpdateResults(ws, false)
-			// note: calling SyncConfigListStore is unnecessary here, because the
-			// above listStore.ForEach query actually syncs it for us. Also,
-			// calling SyncConfigListStore actually causes some annoying UI behavior.
-			// err := SyncConfigListStore(txs, listStore)
-			// if err != nil {
-			// 	log.Printf("failed to sync list store: %v", err.Error())
-			// }
-		}
+		ConfigChange(ws, path, columnID, a.GetActive())
 	})
 
-	column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "active", id)
+	column, err := gtk.TreeViewColumnNewWithAttribute(title, cellRenderer, "active", columnID)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create checkbox cell column: %v", err.Error())
 	}
