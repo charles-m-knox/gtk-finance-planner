@@ -420,7 +420,9 @@ func GetStructuralComponents(ws *state.WinState) (*gtk.Notebook, *gtk.Grid) {
 func SetupNotebookPages(ws *state.WinState) {
 	var err error
 
-	configGrid, configTab := GetConfigBaseComponents(ws)
+	configGrid, configSw, configTreeView, configTab := GetConfigBaseComponents(ws)
+	ws.ConfigScrolledWindow = configSw
+	ws.ConfigTreeView = configTreeView
 
 	*ws.Results, err = lib.GenerateResultsFromDateStrings(
 		ws.TX,

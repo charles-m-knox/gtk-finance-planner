@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
@@ -118,14 +119,14 @@ func GetTXAsRow(tx *lib.TX) (cells []interface{}, columns []int) {
 	return cells, columns
 }
 
-func addConfigTreeRow(listStore *gtk.ListStore, tx *lib.TX) error {
+func addConfigTreeRow(ls *gtk.ListStore, tx *lib.TX) error {
 	// gets an iterator for a new row at the end of the list store
-	iter := listStore.Append()
+	iter := ls.Append()
 
 	cells, columns := GetTXAsRow(tx)
 
 	// Set the contents of the list store row that the iterator represents
-	err := listStore.Set(iter, columns, cells)
+	err := ls.Set(iter, columns, cells)
 	if err != nil {
 		return fmt.Errorf("unable to add config tree row: %v", err.Error())
 	}
@@ -288,18 +289,68 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 	UpdateResults(ws, false)
 }
 
+// SaveConfigScrollPosition saves the current config scrolled window's vertical
+// and horizontal scrollbar positions, so that they can be recalled later. This
+// is typically followed by RestoreConfigScrollPosition.
+func SaveConfigScrollPosition(ws *state.WinState) {
+	if ws.ConfigScrolledWindow != nil {
+		ws.ConfigVScroll = ws.ConfigScrolledWindow.GetVScrollbar().GetValue()
+		ws.ConfigHScroll = ws.ConfigScrolledWindow.GetHScrollbar().GetValue()
+	}
+}
+
+// RestoreConfigScrollPosition is a workaround.
+// This allows the scrollbar to be manipulated properly; without it,
+// some sort of rendering race condition occurs, and we end up
+// either not setting the scroll at all, or if we set it for > 30ms,
+// there is a perceivable jump from the top of the ScrolledWindow to
+// the previous ScrolledWindow scroll position.
+//
+// Note that setting the wait time to be too short may nullify the effect
+// because on low-power devices, it may take longer than e.g. 30ms to
+// re-render.
+//
+// Additionally, it is important to point out that we are only doing
+// this if a pointer to the scrolled window exists, otherwise calls
+// to ws.Win.ShowAll() will cause the window to be resized according to
+// the size of the window when there isn't a gtk.ScrolledWindow yet, in
+// addition to nil pointer references.
+func RestoreConfigScrollPosition(ws *state.WinState) {
+	// recall the scrollbar position
+	if ws.ConfigScrolledWindow != nil {
+		go func() {
+			log.Printf(
+				"debug: restoring scroll bar to %v and %v",
+				ws.ConfigVScroll,
+				ws.ConfigHScroll,
+			)
+
+			time.Sleep(200 * time.Millisecond)
+
+			ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(ws.ConfigVScroll)
+			ws.ConfigScrolledWindow.GetHScrollbar().GetAdjustment().SetValue(ws.ConfigHScroll)
+
+			ws.Win.ShowAll()
+
+			// reset the values
+			ws.ConfigVScroll = float64(0)
+			ws.ConfigHScroll = float64(0)
+		}()
+	}
+}
+
 func SetConfigSortColumn(ws *state.WinState, column int) {
 	columnStr := c.ConfigColumns[column]
 	next := lib.GetNextSort(ws.ConfigColumnSort, columnStr)
 
 	ws.ConfigColumnSort = next
-	UpdateResults(ws, false)
 	err := SyncConfigListStore(ws)
 	if err != nil {
 		// TODO: create a "show message" function pointer and call it here
 		// if it's not nil?
 		log.Printf("failed to sync list store: %v", err.Error())
 	}
+	UpdateResults(ws, false)
 }
 
 // getOrderColumn builds out an "Order" column, which is an integer column
@@ -749,7 +800,7 @@ func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 }
 
 // GetNewConfigListStore creates a list store. This is what holds the data
-// that will be shown on our results tree view
+// that will be shown on our config tree view
 func GetNewConfigListStore() (ls *gtk.ListStore, err error) {
 	ls, err = gtk.ListStoreNew(
 		glib.TYPE_INT,
@@ -902,6 +953,11 @@ func SyncConfigListStore(ws *state.WinState) error {
 		},
 	)
 
+	// TODO: clean up debug log lines
+	log.Println("debug: about to check sw")
+
+	SaveConfigScrollPosition(ws)
+
 	ws.ConfigListStore.Clear()
 
 	// add rows to the tree's list store
@@ -916,6 +972,8 @@ func SyncConfigListStore(ws *state.WinState) error {
 			return fmt.Errorf("failed to sync list store: %v", err.Error())
 		}
 	}
+
+	RestoreConfigScrollPosition(ws)
 
 	return nil
 }
@@ -979,7 +1037,7 @@ func GetConfEditButtons(ws *state.WinState) (*gtk.Button, *gtk.Button, *gtk.Butt
 	return addConfItemBtn, delConfItemBtn, cloneConfItemBtn
 }
 
-func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.Label) {
+func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.TreeView, *gtk.Label) {
 	// TODO: refactor the config tree view list store using the same
 	// approach that was used for the results list store
 	configTreeView, err := GetConfigAsTreeView(ws)
@@ -1021,6 +1079,7 @@ func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.Label) {
 	if err != nil {
 		log.Fatal("failed to create scrolled window:", err)
 	}
+
 	configSw.Add(configTreeView)
 	configSw.SetHExpand(true)
 	configSw.SetVExpand(true)
@@ -1033,7 +1092,7 @@ func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.Label) {
 	// configSw.SetMarginStart(c.UISpacer)
 	// configSw.SetMarginEnd(c.UISpacer)
 
-	return configSw, configTab
+	return configSw, configTreeView, configTab
 }
 
 // TODO: refactor and explain this more
@@ -1097,7 +1156,12 @@ func LoadConfig(
 					}}
 				}
 				ws.Notebook.RemovePage(c.TAB_CONFIG)
-				newConfigSw, newLabel := GetConfigTab(ws)
+				// TODO: possible bug - need to re-initialize the TreeView/
+				// ListStore with the new data instead of regenerating
+				// everything and re-assigning pointerse
+				newConfigSw, newConfigTreeView, newLabel := GetConfigTab(ws)
+				ws.ConfigScrolledWindow = newConfigSw
+				ws.ConfigTreeView = newConfigTreeView
 				ws.Notebook.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
 				UpdateResults(ws, false)
 				ws.Win.ShowAll()
@@ -1122,15 +1186,15 @@ func LoadConfig(
 // GetConfigBaseComponents returns the base components that are required in
 // order to view the transaction tree view presented inside of a GTK notebook
 // tab.
-func GetConfigBaseComponents(ws *state.WinState) (*gtk.Grid, *gtk.Label) {
+func GetConfigBaseComponents(ws *state.WinState) (*gtk.Grid, *gtk.ScrolledWindow, *gtk.TreeView, *gtk.Label) {
 	configGrid, err := gtk.GridNew()
 	if err != nil {
 		log.Fatal("failed to create grid:", err)
 	}
 
 	configGrid.SetOrientation(gtk.ORIENTATION_VERTICAL)
-	configSw, configTab := GetConfigTab(ws)
+	configSw, configTreeView, configTab := GetConfigTab(ws)
 	configGrid.Attach(configSw, 0, 0, 1, 1)
 
-	return configGrid, configTab
+	return configGrid, configSw, configTreeView, configTab
 }
