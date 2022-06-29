@@ -706,50 +706,52 @@ func ValidateTransactions(tx *[]TX) error {
 	uniques := make(map[int]int)
 	msg := new(strings.Builder)
 
-	// create a copy of the transactions so we don't alter the original yet
-	tmpTX := *tx
-
 	// start by sorting the TX by Order
-	sort.SliceStable(tmpTX, func(i, j int) bool {
-		return (tmpTX)[j].Order > (tmpTX)[i].Order
+	sort.SliceStable(*tx, func(i, j int) bool {
+		return (*tx)[j].Order > (*tx)[i].Order
 	})
 
 	// iterate through the list and assert that i is incremental
 	prev := -1
-	for i, t := range tmpTX {
+	for i, t := range *tx {
 		// assert that the first TX has a value of Order=1
 		if i == 0 {
 			if t.Order != 1 {
 				missingFirst = true
-				msg.WriteString("First value does not have Order=1. ")
+				msg.WriteString("First value did not have Order=1. ")
+				(*tx)[i].Order = 1
 			}
 		}
 
 		// assert that each TX sequentially follows the next
 		if t.Order != prev+2 {
-			sequenceFixes[i] = prev + 1
+			sequenceFixes[i] = prev + 2
 			outOfSequence = true
 			msg.WriteString(
 				fmt.Sprintf(
-					"Index %v has out of sequence order=%v that should be %v. ",
+					"Index %v had out of sequence order=%v instead of %v. ",
 					i,
 					t.Order,
 					sequenceFixes[i],
 				),
 			)
+			(*tx)[i].Order = sequenceFixes[i]
 		}
 
 		// assert that there are no duplicate Order values
 		uniques[t.Order] += 1
 		if uniques[t.Order] > 1 {
+			newOrder := i + 1
 			hasDuplicate = true
 			msg.WriteString(
 				fmt.Sprintf(
-					"The Order=%v value is duplicated at least %v times. ",
+					"Order=%v duplicated %v times, setting to %v. ",
 					t.Order,
 					uniques[t.Order],
+					newOrder,
 				),
 			)
+			(*tx)[i].Order = newOrder
 		}
 
 		prev += 1

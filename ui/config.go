@@ -168,8 +168,6 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 					// now we've found the actual TX definition and we can
 					// make changes to the TX and propagate it to the ListStore
 					if column == c.COLUMN_ORDER {
-						// TODO: add function to enforce uniqueness for all
-						// elements and prevent the change if non-unique
 						// TODO: validate that the newValue is of int type
 						// before unsafe type assertion
 						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
@@ -180,7 +178,11 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 								err.Error(),
 							)
 						}
-						(*ws.TX)[i].Order = int(nv)
+						nvi := int(nv)
+						if nvi <= 0 {
+							nvi = 1
+						}
+						(*ws.TX)[i].Order = nvi
 					} else if column == c.COLUMN_AMOUNT {
 						nv := int(lib.ParseDollarAmount(newValue.(string), false))
 						(*ws.TX)[i].Amount = nv
@@ -268,11 +270,22 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 	}
 
 	ws.ConfigListStore.ForEach(iterFn)
-	UpdateResults(ws, false)
+
 	err := lib.ValidateTransactions(ws.TX)
 	if err != nil {
-		log.Printf("config change warning: %v", err.Error())
+		log.Printf("validation warning: %v", err.Error())
+		// since there was a validation error, we have to update every single
+		// item in the store
+		err = SyncConfigListStore(ws)
+		if err != nil {
+			log.Printf(
+				"failed to sync list store after config change: %v",
+				err.Error(),
+			)
+		}
 	}
+
+	UpdateResults(ws, false)
 }
 
 func SetConfigSortColumn(ws *state.WinState, column int) {
