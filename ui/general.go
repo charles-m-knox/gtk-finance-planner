@@ -417,7 +417,7 @@ func GetStructuralComponents(ws *state.WinState) (*gtk.Notebook, *gtk.Grid) {
 // to existing ListStores (and lots of other things from the provided WinState)
 // to enable each of the shown tab pages to show what they're supposed to show.
 // This is an important function!
-func SetupNotebookPages(ws *state.WinState) {
+func SetupNotebookPages(ws *state.WinState) (*gtk.Grid, *gtk.Grid) {
 	var err error
 
 	configGrid, configSw, configTreeView, configTab := GetConfigBaseComponents(ws)
@@ -434,7 +434,7 @@ func SetupNotebookPages(ws *state.WinState) {
 		log.Fatal("failed to generate results from date strings", err.Error())
 	}
 
-	sw, label, err := GenerateResultsTab(
+	resultsGrid, label, err := GenerateResultsTab(
 		ws.TX,
 		*ws.Results,
 		ws.ResultsListStore,
@@ -442,8 +442,11 @@ func SetupNotebookPages(ws *state.WinState) {
 	if err != nil {
 		log.Fatalf("failed to generate results tab: %v", err.Error())
 	}
+
 	ws.Notebook.AppendPage(configGrid, configTab)
-	ws.Notebook.AppendPage(sw, label)
+	ws.Notebook.AppendPage(resultsGrid, label)
+
+	return configGrid, resultsGrid
 }
 
 func SetWinIcon(ws *state.WinState, embeddedIconFS embed.FS) {

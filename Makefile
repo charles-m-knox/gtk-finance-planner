@@ -23,6 +23,10 @@ build:
 	go build -v
 	echo "Done building. Suggest running 'make install' to create a desktop application entry."
 
+build-arm:
+	go get -v
+	GOOS=linux GOARCH=arm64 go build -o finance-planner_arm64 -v
+
 install:
 	echo "If this fails, then you need to run 'make build' first." && test -f "${BIN_SOURCE_PATH}/${BIN_SOURCE_FILE}" || exit 1
 	mkdir -p "${BIN_TARGET_PATH}"

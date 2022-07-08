@@ -1189,12 +1189,12 @@ func LoadConfig(
 func GetConfigBaseComponents(ws *state.WinState) (*gtk.Grid, *gtk.ScrolledWindow, *gtk.TreeView, *gtk.Label) {
 	configGrid, err := gtk.GridNew()
 	if err != nil {
-		log.Fatal("failed to create grid:", err)
+		log.Fatal("failed to create config grid", err)
 	}
 
 	configGrid.SetOrientation(gtk.ORIENTATION_VERTICAL)
 	configSw, configTreeView, configTab := GetConfigTab(ws)
-	configGrid.Attach(configSw, 0, 0, 1, 1)
+	configGrid.Attach(configSw, 0, 0, c.FullGridWidth, 2)
 
 	return configGrid, configSw, configTreeView, configTab
 }

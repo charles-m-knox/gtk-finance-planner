@@ -21,7 +21,10 @@ const (
 	IconAssetPath = "assets/icon-128.png"
 
 	BalanceInputPlaceholderText = "$500.00 - Enter a balance to start with."
-	FullGridWidth               = 3
+	FullGridWidth               = 2
+	HalfGridWidth               = 1
+	ScrolledWindowGridHeight    = 4
+	ControlsGridHeight          = 1
 
 	GtkSignalClicked      = "clicked"
 	GtkSignalActivate     = "activate"

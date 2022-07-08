@@ -123,15 +123,15 @@ func GetResultsAsTreeView(results *[]lib.Result, ls *gtk.ListStore) (tv *gtk.Tre
 	return
 }
 
-func GenerateResultsTab(txs *[]lib.TX, results []lib.Result, ls *gtk.ListStore) (sw *gtk.ScrolledWindow, tabLabel *gtk.Label, err error) {
+func GenerateResultsTab(txs *[]lib.TX, results []lib.Result, ls *gtk.ListStore) (grid *gtk.Grid, tabLabel *gtk.Label, err error) {
 	// build the results tab page
 	resultsTreeView, err := GetResultsAsTreeView(&results, ls)
 	if err != nil {
-		return sw, tabLabel, fmt.Errorf("failed to get results as tree view: %v", err.Error())
+		return grid, tabLabel, fmt.Errorf("failed to get results as tree view: %v", err.Error())
 	}
 	resultsTabLabel, err := gtk.LabelNew("Results")
 	if err != nil {
-		return sw, tabLabel, fmt.Errorf("failed to set tab label: %v", err.Error())
+		return grid, tabLabel, fmt.Errorf("failed to set tab label: %v", err.Error())
 	}
 	// TODO: support select capabilities later
 	// resultsTreeSelection, err := resultsTreeView.GetSelection()
@@ -141,11 +141,19 @@ func GenerateResultsTab(txs *[]lib.TX, results []lib.Result, ls *gtk.ListStore) 
 	// resultsTreeSelection.Connect(c.GtkSignalChanged, SelectionChanged)
 	resultsSw, err := gtk.ScrolledWindowNew(nil, nil)
 	if err != nil {
-		return sw, tabLabel, fmt.Errorf("Unable to create scrolled window: %v", err.Error())
+		return grid, tabLabel, fmt.Errorf("Unable to create scrolled window: %v", err.Error())
 	}
 	resultsSw.Add(resultsTreeView)
 	resultsSw.SetHExpand(true)
 	resultsSw.SetVExpand(true)
+
+	resultsGrid, err := gtk.GridNew()
+	if err != nil {
+		log.Fatal("failed to create results grid", err)
+	}
+
+	resultsGrid.SetOrientation(gtk.ORIENTATION_VERTICAL)
+	resultsGrid.Attach(resultsSw, 0, 0, c.FullGridWidth, 2)
 
 	// TODO: mess with these more; it's preferable to have the tree view
 	// a little more tight against the margins, but may be preferable in
@@ -155,7 +163,7 @@ func GenerateResultsTab(txs *[]lib.TX, results []lib.Result, ls *gtk.ListStore) 
 	// resultsSw.SetMarginStart(c.UISpacer)
 	// resultsSw.SetMarginEnd(c.UISpacer)
 
-	return resultsSw, resultsTabLabel, nil
+	return resultsGrid, resultsTabLabel, nil
 }
 
 func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
@@ -230,6 +238,10 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 	SetSpacerMarginsGtkEntry(startingBalanceInput)
 	SetSpacerMarginsGtkEntry(stDateInput)
 	SetSpacerMarginsGtkEntry(endDateInput)
+
+	startingBalanceInput.SetSizeRequest(5, -1)
+	stDateInput.SetSizeRequest(5, -1)
+	endDateInput.SetSizeRequest(5, -1)
 
 	return startingBalanceInput, stDateInput, endDateInput
 }

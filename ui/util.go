@@ -41,20 +41,20 @@ func SetSpacerMarginsGtkEntry(entry *gtk.Entry) {
 
 // SetSpacerMarginsGtkCheckBtn sets the standard spacer for all 4 different
 // margin dimensions.
-func SetSpacerMarginsGtkCheckBtn(entry *gtk.CheckButton) {
-	entry.SetMarginTop(c.UISpacer)
-	entry.SetMarginBottom(c.UISpacer)
-	entry.SetMarginStart(c.UISpacer)
-	entry.SetMarginEnd(c.UISpacer)
+func SetSpacerMarginsGtkCheckBtn(chk *gtk.CheckButton) {
+	chk.SetMarginTop(c.UISpacer)
+	chk.SetMarginBottom(c.UISpacer)
+	chk.SetMarginStart(c.UISpacer)
+	chk.SetMarginEnd(c.UISpacer)
 }
 
 // SetSpacerMarginsGtkCheckBtn sets the standard spacer for all 4 different
 // margin dimensions.
-func SetSpacerMarginsGtkBtn(entry *gtk.Button) {
-	entry.SetMarginTop(c.UISpacer)
-	entry.SetMarginBottom(c.UISpacer)
-	entry.SetMarginStart(c.UISpacer)
-	entry.SetMarginEnd(c.UISpacer)
+func SetSpacerMarginsGtkBtn(btn *gtk.Button) {
+	btn.SetMarginTop(c.UISpacer)
+	btn.SetMarginBottom(c.UISpacer)
+	btn.SetMarginStart(c.UISpacer)
+	btn.SetMarginEnd(c.UISpacer)
 }
 
 // UpdateResults gets called whenever a change is made in the config and it

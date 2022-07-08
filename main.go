@@ -178,7 +178,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	nb, grid := ui.GetStructuralComponents(ws)
 	ws.Notebook = nb
 
-	ui.SetupNotebookPages(ws)
+	cfgGrid, resultsGrid := ui.SetupNotebookPages(ws)
 	ui.SetWinIcon(ws, embeddedIconFS)
 
 	ws.Win.SetTitle(c.FinancialPlanner)
@@ -276,14 +276,16 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	// everything has been connected up and instantiated - now we can proceed
 	// to attach components to a grid and render them
 
-	grid.Attach(ws.Notebook, 0, 0, c.FullGridWidth, 2)
-	grid.Attach(hideInactiveCheckbox, 0, 2, 1, 1)
-	grid.Attach(addConfItemBtn, 0, 3, 1, 1)
-	grid.Attach(delConfItemBtn, 1, 3, 1, 1)
-	grid.Attach(cloneConfItemBtn, 2, 3, 1, 1)
-	grid.Attach(startingBalanceInput, 0, 4, 1, 1)
-	grid.Attach(stDateInput, 1, 4, 1, 1)
-	grid.Attach(endDateInput, 2, 4, 1, 1)
+	cfgGrid.Attach(hideInactiveCheckbox, 0, c.ScrolledWindowGridHeight, c.HalfGridWidth, c.ControlsGridHeight)
+	cfgGrid.Attach(addConfItemBtn, 0, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
+	cfgGrid.Attach(delConfItemBtn, 1, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
+	cfgGrid.Attach(cloneConfItemBtn, 0, c.ScrolledWindowGridHeight+2, c.FullGridWidth, c.ControlsGridHeight)
+
+	resultsGrid.Attach(startingBalanceInput, 0, c.ScrolledWindowGridHeight, c.FullGridWidth, c.ControlsGridHeight)
+	resultsGrid.Attach(stDateInput, 0, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
+	resultsGrid.Attach(endDateInput, 1, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
+
+	grid.Attach(ws.Notebook, 0, 0, c.FullGridWidth, c.ScrolledWindowGridHeight)
 
 	ws.Header.PackStart(mbtn)
 	rootBox.PackStart(grid, true, true, 0)
