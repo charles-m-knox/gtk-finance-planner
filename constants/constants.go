@@ -42,6 +42,7 @@ const (
 	ActionCopyResults             = "copyResults"
 	ActionLoadConfigCurrentWindow = "loadConfigCurrentWindow"
 	ActionLoadConfigNewWindow     = "loadConfigNewWindow"
+	ActionGetStats                = "getStats"
 
 	HideInactiveBtnLabel = "_Hide inactive"
 	CloneBtnLabel        = "_Clone"

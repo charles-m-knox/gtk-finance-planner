@@ -171,6 +171,7 @@ func GetMainWindowRootElements(application *gtk.Application) (
 	menu.Append("Open in new window...", "fin.loadConfigNewWindow")
 	menu.Append("Save results...", "fin.saveResults")
 	menu.Append("Copy results to clipboard", "fin.copyResults")
+	menu.Append("Show statistics", "fin.getStats")
 	menu.Append("New Window", "app.new")
 	menu.Append("Close Window", "win.close")
 	menu.Append("Quit", "app.quit")

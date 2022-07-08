@@ -202,6 +202,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	copyResultsAction := glib.SimpleActionNew(c.ActionCopyResults, nil)
 	loadConfCurrentWindowAction := glib.SimpleActionNew(c.ActionLoadConfigCurrentWindow, nil)
 	loadConfNewWindowAction := glib.SimpleActionNew(c.ActionLoadConfigNewWindow, nil)
+	getStatsWindowAction := glib.SimpleActionNew(c.ActionGetStats, nil)
 
 	// create and insert custom action group with prefix "fin" (for finances)
 	finActionGroup := glib.SimpleActionGroupNew()
@@ -211,6 +212,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	finActionGroup.AddAction(copyResultsAction)
 	finActionGroup.AddAction(loadConfCurrentWindowAction)
 	finActionGroup.AddAction(loadConfNewWindowAction)
+	finActionGroup.AddAction(getStatsWindowAction)
 
 	ws.Win.InsertActionGroup("fin", finActionGroup)
 	ws.Win.AddAction(closeWinAction)
@@ -228,6 +230,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	copyResultsAction.Connect(c.GtkSignalActivate, copyResultsFn)
 	loadConfCurrentWindowAction.Connect(c.GtkSignalActivate, loadConfCurrentWindowFn)
 	loadConfNewWindowAction.Connect(c.GtkSignalActivate, loadConfNewWindowFn)
+	getStatsWindowAction.Connect(c.GtkSignalActivate, getStats)
 
 	// buttons
 	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)
