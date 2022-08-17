@@ -19,7 +19,7 @@ type WinState struct {
 	StartDate            string
 	EndDate              string
 	SelectedConfigItems  []int
-	ShowMessageDialog    *func(message string)
+	ShowMessageDialog    *func(m string, t gtk.MessageType)
 	ConfigListStore      *gtk.ListStore
 	ResultsListStore     *gtk.ListStore
 	TX                   *[]lib.TX // transaction definitions for the current window

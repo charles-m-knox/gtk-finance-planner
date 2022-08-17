@@ -64,6 +64,15 @@ const (
 	AddBtnLabel          = "_+"
 	DelBtnLabel          = "_-"
 	ConfigTabLabel       = "Config"
+
+	// user-facing messages
+	MsgInvalidDateInput          = "Enter a valid date in the format YYYY-MM-DD."
+	MsgStartBalanceCannotBeEmpty = "Enter a non-empty currency-like value for the starting balance."
+	MsgInvalidRecurrence         = "Please enter one of the following values: y/m/w/monthly/weekly/yearly"
+
+	// error codes - generate new ones with "uuidgen | cut -b 1-6"
+	ErrorCodeSyncConfigListStore                      = "9a0fab"
+	ErrorCodeSyncConfigListStoreAfterColumnSortChange = "a6bbb2"
 )
 
 const (

@@ -187,7 +187,7 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 		y, m, d := lib.ParseYearMonthDateString(s)
 		if s == "" || (y == 0 && m == 0 && d == 0) {
 			e.SetText("")
-			// TODO: use WinState to show an Invalid Input dialog
+			(*ws.ShowMessageDialog)(c.MsgInvalidDateInput, gtk.MESSAGE_ERROR)
 			return
 		}
 		ws.StartDate = fmt.Sprintf("%v-%v-%v", y, m, d)
@@ -200,7 +200,7 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 		y, m, d := lib.ParseYearMonthDateString(s)
 		if s == "" || (y == 0 && m == 0 && d == 0) {
 			e.SetText("")
-			// TODO: use WinState to show an Invalid Input dialog
+			(*ws.ShowMessageDialog)(c.MsgInvalidDateInput, gtk.MESSAGE_ERROR)
 			return
 		}
 		ws.EndDate = fmt.Sprintf("%v-%v-%v", y, m, d)
@@ -211,7 +211,7 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 	updateStartingBalance := func(e *gtk.Entry) {
 		s, _ := e.GetText()
 		if s == "" {
-			// TODO: use WinState to show an Invalid Input dialog
+			(*ws.ShowMessageDialog)(c.MsgStartBalanceCannotBeEmpty, gtk.MESSAGE_ERROR)
 			return
 		}
 

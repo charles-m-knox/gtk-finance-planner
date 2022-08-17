@@ -168,6 +168,20 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 		ui.UpdateResults(ws, false)
 	}
 
+	showMessageDialog := func(m string, t gtk.MessageType) {
+		d := gtk.MessageDialogNew(
+			ws.Win,
+			gtk.DIALOG_MODAL,
+			t,
+			gtk.BUTTONS_OK,
+			"%s",
+			m,
+		)
+		log.Println(m)
+		d.Run()
+		d.Destroy()
+	}
+
 	// instantiation of graphical components begins next
 
 	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
@@ -191,6 +205,8 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	startingBalanceInput, stDateInput, endDateInput := ui.GetResultsInputs(ws)
 	addConfItemBtn, delConfItemBtn, cloneConfItemBtn := ui.GetConfEditButtons(ws)
 	hideInactiveCheckbox := ui.GetHideInactiveCheckbox(ws)
+
+	ws.ShowMessageDialog = &showMessageDialog
 
 	// all graphical components have been instantiated now - the next part
 	// is to connect signals, functions, and accelerators

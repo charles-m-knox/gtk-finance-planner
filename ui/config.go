@@ -190,8 +190,7 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 							nv = c.MONTHLY
 						}
 						if nv != c.WEEKLY && nv != c.MONTHLY && nv != c.YEARLY {
-							// TODO: invalid input message dialog
-							log.Print("unacceptable value provided; please enter y/m/w/monthly/weekly/yearly")
+							(*ws.ShowMessageDialog)(c.MsgInvalidRecurrence, gtk.MESSAGE_ERROR)
 							break
 						}
 
@@ -199,11 +198,11 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 					} else if column == c.COLUMN_INTERVAL {
 						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
 						if err != nil {
-							log.Printf(
+							(*ws.ShowMessageDialog)(fmt.Sprintf(
 								"failed to convert interval %v to int: %v",
 								newValue,
 								err.Error(),
-							)
+							), gtk.MESSAGE_ERROR)
 						}
 						if nv <= 0 {
 							nv = 1
@@ -263,10 +262,13 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 		// item in the store
 		err = SyncConfigListStore(ws)
 		if err != nil {
-			log.Printf(
-				"failed to sync list store after config change: %v",
+			// an error occurred during the list store config after the user
+			// made a change.
+			(*ws.ShowMessageDialog)(fmt.Sprintf(
+				"Error code %v - failed to sync after a config change: %v",
+				c.ErrorCodeSyncConfigListStore,
 				err.Error(),
-			)
+			), gtk.MESSAGE_ERROR)
 		}
 	}
 
@@ -330,9 +332,11 @@ func SetConfigSortColumn(ws *state.WinState, column int) {
 	ws.ConfigColumnSort = next
 	err := SyncConfigListStore(ws)
 	if err != nil {
-		// TODO: create a "show message" function pointer and call it here
-		// if it's not nil?
-		log.Printf("failed to sync list store: %v", err.Error())
+		(*ws.ShowMessageDialog)(fmt.Sprintf(
+			"Error code %v - failed to sync after a column sort order change: %v",
+			c.ErrorCodeSyncConfigListStoreAfterColumnSortChange,
+			err.Error(),
+		), gtk.MESSAGE_ERROR)
 	}
 	UpdateResults(ws, false)
 }
@@ -610,7 +614,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	startsColumn.SetVisible(true)
 	startsColumnHeaderBtn, err := startsColumn.GetButton()
 	if err != nil {
-		log.Printf("failed to get starts column header button: %v", err.Error())
+		log.Printf("failed to get Starts column header button: %v", err.Error())
 	}
 	startsColumnHeaderBtn.ToWidget().Connect(c.GtkSignalClicked, func() {
 		SetConfigSortColumn(ws, c.COLUMN_STARTS)
@@ -1040,7 +1044,7 @@ func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.TreeView, *gtk.
 	}
 	configTreeSelection, err := configTreeView.GetSelection()
 	if err != nil {
-		log.Fatalf("failed to get results tree vie sel: %v", err.Error())
+		log.Fatalf("failed to get results tree view sel: %v", err.Error())
 	}
 	configTreeSelection.SetMode(gtk.SELECTION_MULTIPLE)
 
