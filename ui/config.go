@@ -38,30 +38,14 @@ func DelConfItem(ws *state.WinState) {
 
 		UpdateResults(ws, false)
 		SyncConfigListStore(ws)
-
-		// TODO: old code - jittery and inefficient
-		// nb.RemovePage(c.TAB_CONFIG)
-		// newConfigSw, newLabel := genConfigView()
-		// nb.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
-		// ui.UpdateResults(ws, false)
-		// win.ShowAll()
-		// nb.SetCurrentPage(c.TAB_CONFIG)
-
 		ws.SelectedConfigItems = []int{}
 	}
 }
 
 func AddConfItem(ws *state.WinState) {
-	// TODO: create/use helper function that generates new TX instances
-	// TODO: refactor
-	*ws.TX = append(*ws.TX, lib.TX{
-		Order:     len(*ws.TX) + 1,
-		Amount:    -500,
-		Active:    true,
-		Name:      "New",
-		Frequency: "WEEKLY",
-		Interval:  1,
-	})
+	newTX := lib.GetNewTX()
+	newTX.Order = len(*ws.TX) + 1
+	*ws.TX = append(*ws.TX, lib.GetNewTX())
 
 	UpdateResults(ws, false)
 	SyncConfigListStore(ws)
@@ -196,16 +180,16 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 					} else if column == c.COLUMN_FREQUENCY {
 						// TODO: refactor for unit testability
 						nv := strings.ToUpper(strings.TrimSpace(newValue.(string)))
-						if nv == "Y" {
-							nv = "YEARLY"
+						if nv == c.Y {
+							nv = c.YEARLY
 						}
-						if nv == "W" {
-							nv = "WEEKLY"
+						if nv == c.W {
+							nv = c.WEEKLY
 						}
-						if nv == "M" {
-							nv = "MONTHLY"
+						if nv == c.M {
+							nv = c.MONTHLY
 						}
-						if nv != "WEEKLY" && nv != "MONTHLY" && nv != "YEARLY" {
+						if nv != c.WEEKLY && nv != c.MONTHLY && nv != c.YEARLY {
 							// TODO: invalid input message dialog
 							log.Print("unacceptable value provided; please enter y/m/w/monthly/weekly/yearly")
 							break
@@ -1150,23 +1134,12 @@ func LoadConfig(
 				extraDialogMessageText := ""
 				if len(*ws.TX) == 0 {
 					extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
-					*ws.TX = []lib.TX{{
-						Order:     1,
-						Amount:    -500,
-						Active:    true,
-						Name:      "New",
-						Frequency: "WEEKLY",
-						Interval:  1,
-					}}
+					newTX := lib.GetNewTX()
+					newTX.Order = 1
+					*ws.TX = []lib.TX{newTX}
 				}
-				ws.Notebook.RemovePage(c.TAB_CONFIG)
-				// TODO: possible bug - need to re-initialize the TreeView/
-				// ListStore with the new data instead of regenerating
-				// everything and re-assigning pointerse
-				newConfigSw, newConfigTreeView, newLabel := GetConfigTab(ws)
-				ws.ConfigScrolledWindow = newConfigSw
-				ws.ConfigTreeView = newConfigTreeView
-				ws.Notebook.InsertPage(newConfigSw, newLabel, c.TAB_CONFIG)
+
+				SyncConfigListStore(ws)
 				UpdateResults(ws, false)
 				ws.Win.ShowAll()
 				ws.Notebook.SetCurrentPage(c.TAB_CONFIG)

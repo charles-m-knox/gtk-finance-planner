@@ -124,6 +124,17 @@ type Result struct { // csv/table output row
 	DayTransactionNamesSlice []string
 }
 
+// GetNewTX returns an empty transaction with sensible defaults.
+func GetNewTX() TX {
+	return TX{
+		Amount:    -500,
+		Active:    true,
+		Name:      c.New,
+		Frequency: c.WEEKLY,
+		Interval:  1,
+	}
+}
+
 // DoesTXHaveWeekday checks if a recurring transaction definition contains
 // the specified weekday as an rrule recurrence day of the week.
 func (tx *TX) DoesTXHaveWeekday(weekday int) bool {

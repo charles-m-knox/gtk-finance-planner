@@ -48,15 +48,9 @@ func ProcessInitialConfigLoad(win *gtk.ApplicationWindow, openFileName *string, 
 	}
 
 	if len(*userTX) == 0 {
-		// TODO: create helper function that creates a fresh TX
-		*userTX = []lib.TX{{
-			Order:     1,
-			Amount:    -500,
-			Active:    true,
-			Name:      "New",
-			Frequency: "WEEKLY",
-			Interval:  1,
-		}}
+		newTX := lib.GetNewTX()
+		newTX.Order = 1
+		*userTX = []lib.TX{newTX}
 		EmptyConfigLoadSuccessDialog(win, *openFileName)
 	}
 }

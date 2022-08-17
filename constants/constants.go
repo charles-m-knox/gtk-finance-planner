@@ -14,6 +14,16 @@ const (
 	Monthly = "Monthly"
 	Yearly  = "Yearly"
 
+	WEEKLY  = "WEEKLY"
+	MONTHLY = "MONTHLY"
+	YEARLY  = "YEARLY"
+
+	Y = "Y"
+	W = "W"
+	M = "M"
+
+	New = "New"
+
 	FinancialPlanner = "Financial Planner"
 
 	UISpacer = 10 // allows consistent spacing between all elements
