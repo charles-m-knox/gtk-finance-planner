@@ -68,14 +68,14 @@ func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 
 	rowData := []interface{}{
 		lib.FormatAsDate(result.Date),
-		lib.CurrencyMarkup(result.Balance),
-		lib.CurrencyMarkup(result.CumulativeIncome),
-		lib.CurrencyMarkup(result.CumulativeExpenses),
-		lib.CurrencyMarkup(result.DayExpenses),
-		lib.CurrencyMarkup(result.DayIncome),
-		lib.CurrencyMarkup(result.DayNet),
-		lib.CurrencyMarkup(result.DiffFromStart),
-		lib.MarkupColorSequence(result.DayTransactionNamesSlice),
+		lib.FormatAsCurrency(result.Balance),              // lib.CurrencyMarkup(result.Balance),
+		lib.FormatAsCurrency(result.CumulativeIncome),     // lib.CurrencyMarkup(result.CumulativeIncome),
+		lib.FormatAsCurrency(result.CumulativeExpenses),   // lib.CurrencyMarkup(result.CumulativeExpenses),
+		lib.FormatAsCurrency(result.DayExpenses),          // lib.CurrencyMarkup(result.DayExpenses),
+		lib.FormatAsCurrency(result.DayIncome),            // lib.CurrencyMarkup(result.DayIncome),
+		lib.FormatAsCurrency(result.DayNet),               // lib.CurrencyMarkup(result.DayNet),
+		lib.FormatAsCurrency(result.DiffFromStart),        // lib.CurrencyMarkup(result.DiffFromStart),
+		lib.GetCSVString(result.DayTransactionNamesSlice), // lib.MarkupColorSequence(result.DayTransactionNamesSlice),
 	}
 
 	// Set the contents of the list store row that the iterator represents
@@ -238,10 +238,6 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 	SetSpacerMarginsGtkEntry(startingBalanceInput)
 	SetSpacerMarginsGtkEntry(stDateInput)
 	SetSpacerMarginsGtkEntry(endDateInput)
-
-	startingBalanceInput.SetSizeRequest(5, -1)
-	stDateInput.SetSizeRequest(5, -1)
-	endDateInput.SetSizeRequest(5, -1)
 
 	return startingBalanceInput, stDateInput, endDateInput
 }

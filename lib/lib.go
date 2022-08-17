@@ -648,6 +648,10 @@ func CurrencyMarkup(input int) string {
 	return currency
 }
 
+// MarkupColorSequence takes an input string slice and converts it into a semi-
+// colon separated string, as well as slowly shifting the color of each semi-
+// colon separated value in the string itself to help users differentiate the
+// different entries in the CSV string.
 func MarkupColorSequence(input []string) string {
 	result := new(strings.Builder)
 	if len(input) > 0 {
@@ -656,6 +660,18 @@ func MarkupColorSequence(input []string) string {
 	for i, name := range input {
 		colorSequenceIndex := i % len(c.ResultsTXNameColorSequences)
 		result.WriteString(fmt.Sprintf(`<u><span foreground="%v">%v</span></u>; `, c.ResultsTXNameColorSequences[colorSequenceIndex], name))
+	}
+	return result.String()
+}
+
+// GetCSVString produces a simple semi-colon-separated value string.
+func GetCSVString(input []string) string {
+	result := new(strings.Builder)
+	if len(input) > 0 {
+		result.WriteString(fmt.Sprintf("(%v) ", len(input)))
+	}
+	for _, name := range input {
+		result.WriteString(fmt.Sprintf(`%v; `, name))
 	}
 	return result.String()
 }

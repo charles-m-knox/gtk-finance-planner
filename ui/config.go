@@ -94,11 +94,11 @@ func CloneConfItem(ws *state.WinState) {
 func GetTXAsRow(tx *lib.TX) (cells []interface{}, columns []int) {
 	cells = []interface{}{
 		tx.Order,
-		tx.MarkupCurrency(lib.CurrencyMarkup(tx.Amount)),
+		lib.FormatAsCurrency(tx.Amount), // tx.MarkupCurrency(lib.CurrencyMarkup(tx.Amount)),
 		tx.Active,
-		tx.MarkupText(tx.Name),
-		tx.MarkupText(tx.Frequency),
-		tx.MarkupText(fmt.Sprint(tx.Interval)),
+		tx.Name,                 // tx.MarkupText(tx.Name),
+		tx.Frequency,            // tx.MarkupText(tx.Frequency),
+		fmt.Sprint(tx.Interval), // tx.MarkupText(fmt.Sprint(tx.Interval)),
 		tx.DoesTXHaveWeekday(c.WeekdayMondayInt),
 		tx.DoesTXHaveWeekday(c.WeekdayTuesdayInt),
 		tx.DoesTXHaveWeekday(c.WeekdayWednesdayInt),
@@ -106,9 +106,9 @@ func GetTXAsRow(tx *lib.TX) (cells []interface{}, columns []int) {
 		tx.DoesTXHaveWeekday(c.WeekdayFridayInt),
 		tx.DoesTXHaveWeekday(c.WeekdaySaturdayInt),
 		tx.DoesTXHaveWeekday(c.WeekdaySundayInt),
-		tx.MarkupText(fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay)),
-		tx.MarkupText(fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay)),
-		tx.MarkupText(tx.Note),
+		fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay), // tx.MarkupText(fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay)),
+		fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay),       // tx.MarkupText(fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay)),
+		tx.Note, // tx.MarkupText(tx.Note),
 	}
 
 	columns = []int{}
@@ -160,7 +160,7 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 
 			valInt := val.(int)
 			// TODO: clean this up
-			log.Printf("order from list store=%v", valInt)
+			// log.Printf("order from list store=%v", valInt)
 
 			// now that we've found the unique ID for this TX definition, we can
 			// proceed to find the actual TX definition
@@ -249,7 +249,7 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 						(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
 					} else if column == c.COLUMN_NOTE {
 						nv := newValue.(string)
-						(*ws.TX)[i].Name = nv
+						(*ws.TX)[i].Note = nv
 					} else {
 						log.Printf(
 							"warning: column id %v was modified, but there is no case to handle it",
@@ -319,11 +319,11 @@ func RestoreConfigScrollPosition(ws *state.WinState) {
 	// recall the scrollbar position
 	if ws.ConfigScrolledWindow != nil {
 		go func() {
-			log.Printf(
-				"debug: restoring scroll bar to %v and %v",
-				ws.ConfigVScroll,
-				ws.ConfigHScroll,
-			)
+			// log.Printf(
+			// 	"debug: restoring scroll bar to %v and %v",
+			// 	ws.ConfigVScroll,
+			// 	ws.ConfigHScroll,
+			// )
 
 			time.Sleep(200 * time.Millisecond)
 
@@ -429,7 +429,8 @@ func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	amtCellRenderer.SetVisible(true)
 	amtCellRenderer.Connect(c.GtkSignalEditingStart, amtCellEditingStarted)
 	amtCellRenderer.Connect(c.GtkSignalEdited, amtCellEditingFinished)
-	amtColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnAmount, amtCellRenderer, "markup", c.COLUMN_AMOUNT)
+	amtColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnAmount, amtCellRenderer, "text", c.COLUMN_AMOUNT)
+	// amtColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnAmount, amtCellRenderer, "markup", c.COLUMN_AMOUNT)
 	if err != nil {
 		return tvc, fmt.Errorf(
 			"unable to create amount cell column: %v",
@@ -496,7 +497,8 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	nameCellRenderer.SetVisible(true)
 	nameCellRenderer.Connect(c.GtkSignalEditingStart, nameCellEditingStarted)
 	nameCellRenderer.Connect(c.GtkSignalEdited, nameCellEditingFinished)
-	nameColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnName, nameCellRenderer, "markup", c.COLUMN_NAME)
+	nameColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnName, nameCellRenderer, "text", c.COLUMN_NAME)
+	// nameColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnName, nameCellRenderer, "markup", c.COLUMN_NAME)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Name cell column: %v", err.Error())
 	}
@@ -533,7 +535,8 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 	freqCellRenderer.SetVisible(true)
 	freqCellRenderer.Connect(c.GtkSignalEditingStart, freqCellEditingStarted)
 	freqCellRenderer.Connect(c.GtkSignalEdited, freqCellEditingFinished)
-	freqColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnFrequency, freqCellRenderer, "markup", c.COLUMN_FREQUENCY)
+	freqColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnFrequency, freqCellRenderer, "text", c.COLUMN_FREQUENCY)
+	// freqColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnFrequency, freqCellRenderer, "markup", c.COLUMN_FREQUENCY)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Frequency cell column: %v", err.Error())
 	}
@@ -576,7 +579,8 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 	intervalCellRenderer.SetVisible(true)
 	intervalCellRenderer.Connect(c.GtkSignalEditingStart, intervalCellEditingStarted)
 	intervalCellRenderer.Connect(c.GtkSignalEdited, intervalCellEditingFinished)
-	intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnInterval, intervalCellRenderer, "markup", c.COLUMN_INTERVAL)
+	intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnInterval, intervalCellRenderer, "text", c.COLUMN_INTERVAL)
+	// intervalColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnInterval, intervalCellRenderer, "markup", c.COLUMN_INTERVAL)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Interval cell column: %v", err.Error())
 	}
@@ -612,7 +616,8 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	startsCellRenderer.SetVisible(true)
 	startsCellRenderer.Connect(c.GtkSignalEditingStart, startsCellEditingStarted)
 	startsCellRenderer.Connect(c.GtkSignalEdited, startsCellEditingFinished)
-	startsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnStarts, startsCellRenderer, "markup", c.COLUMN_STARTS)
+	startsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnStarts, startsCellRenderer, "text", c.COLUMN_STARTS)
+	// startsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnStarts, startsCellRenderer, "markup", c.COLUMN_STARTS)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Starts cell column: %v", err.Error())
 	}
@@ -648,7 +653,8 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	endsCellRenderer.SetVisible(true)
 	endsCellRenderer.Connect(c.GtkSignalEditingStart, endsCellEditingStarted)
 	endsCellRenderer.Connect(c.GtkSignalEdited, endsCellEditingFinished)
-	endsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnEnds, endsCellRenderer, "markup", c.COLUMN_ENDS)
+	endsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnEnds, endsCellRenderer, "text", c.COLUMN_ENDS)
+	// endsColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnEnds, endsCellRenderer, "markup", c.COLUMN_ENDS)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Ends cell column: %v", err.Error())
 	}
@@ -686,7 +692,8 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	notesCellRenderer.SetVisible(true)
 	notesCellRenderer.Connect(c.GtkSignalEditingStart, notesCellEditingStarted)
 	notesCellRenderer.Connect(c.GtkSignalEdited, notesCellEditingFinished)
-	notesColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnNote, notesCellRenderer, "markup", c.COLUMN_NOTE)
+	notesColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnNote, notesCellRenderer, "text", c.COLUMN_NOTE)
+	// notesColumn, err := gtk.TreeViewColumnNewWithAttribute(c.ColumnNote, notesCellRenderer, "markup", c.COLUMN_NOTE)
 	if err != nil {
 		return tvc, fmt.Errorf("unable to create Notes cell column: %v", err.Error())
 	}
@@ -953,9 +960,6 @@ func SyncConfigListStore(ws *state.WinState) error {
 		},
 	)
 
-	// TODO: clean up debug log lines
-	log.Println("debug: about to check sw")
-
 	SaveConfigScrollPosition(ws)
 
 	ws.ConfigListStore.Clear()
@@ -1071,7 +1075,7 @@ func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.TreeView, *gtk.
 			// str, _ := value.GetString()
 			// items = append(items, str)
 		}
-		log.Printf("selection changed: %v, %v", s, ws.SelectedConfigItems)
+		// log.Printf("selection changed: %v, %v", s, ws.SelectedConfigItems)
 	}
 
 	configTreeSelection.Connect(c.GtkSignalChanged, selectionChanged)
