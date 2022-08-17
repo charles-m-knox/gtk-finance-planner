@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	c "finance-planner/constants"
 	"finance-planner/lib"
@@ -29,12 +30,12 @@ func main() {
 	homeDir := currentUser.HomeDir
 	defaultConfigFile := c.DefaultConfFileName
 	if homeDir != "" {
-		defaultConfigFile = fmt.Sprintf(
+		defaultConfigFile = filepath.FromSlash(fmt.Sprintf(
 			"%v/%v/%v",
 			homeDir,
 			c.DefaultConfFilePath,
 			c.DefaultConfFileName,
-		)
+		))
 	}
 
 	application.Connect(c.GtkSignalActivate, func() {
