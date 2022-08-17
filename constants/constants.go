@@ -9,6 +9,9 @@ import (
 var DefaultConfFilePath = filepath.FromSlash(".config/finance-planner")
 
 const (
+	VERSION      = "0.0.2"
+	AboutMessage = "Finance Planner\n\nA way to manage recurring transactions.\n\nSource code: https://gitea.cmcode.dev/cmcode/gtk-finance-planner"
+
 	Day     = "Day"
 	Weekly  = "Weekly"
 	Monthly = "Monthly"
@@ -48,6 +51,10 @@ const (
 	GtkSignalEditingStart = "editing-started"
 	GtkSignalEdited       = "edited"
 
+	ActionGroupFin = "fin"
+	ActionGroupApp = "app"
+	ActionGroupWin = "win"
+
 	ActionClose                   = "close"
 	ActionNew                     = "new"
 	ActionQuit                    = "quit"
@@ -58,6 +65,19 @@ const (
 	ActionLoadConfigCurrentWindow = "loadConfigCurrentWindow"
 	ActionLoadConfigNewWindow     = "loadConfigNewWindow"
 	ActionGetStats                = "getStats"
+	ActionAbout                   = "showAboutDialog"
+
+	MenuItemSave          = "Save"
+	MenuItemSaveAs        = "Save as..."
+	MenuItemOpen          = "Open..."
+	MenuItemOpenNewWindow = "Open in new window..."
+	MenuItemSaveResults   = "Save results..."
+	MenuItemCopyResults   = "Copy results to clipboard"
+	MenuItemShowStats     = "Show statistics"
+	MenuItemAbout         = "About"
+	MenuItemNewWindow     = "New Window"
+	MenuItemCloseWindow   = "Close Window"
+	MenuItemQuit          = "Quit"
 
 	HideInactiveBtnLabel = "_Hide inactive"
 	CloneBtnLabel        = "_Clone"

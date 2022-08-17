@@ -82,6 +82,27 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 		App:                 application,
 	}
 
+	// the shared function ShowMessageDialog should be initialized first,
+	// because other functions will inevitably show a dialog using this method
+	// at some point
+	// TODO: include "if ws.ShowMessageDialog != nil" pointer checks throughout
+	// the codebase
+	showMessageDialog := func(m string, t gtk.MessageType) {
+		d := gtk.MessageDialogNew(
+			ws.Win,
+			gtk.DIALOG_MODAL,
+			t,
+			gtk.BUTTONS_OK,
+			"%s",
+			m,
+		)
+		log.Println(m)
+		d.Run()
+		d.Destroy()
+	}
+
+	ws.ShowMessageDialog = &showMessageDialog
+
 	// initialize some values
 	ws.ResultsListStore, err = ui.GetNewResultsListStore()
 	if err != nil {
@@ -91,6 +112,17 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	ws.ConfigListStore, err = ui.GetNewConfigListStore()
 	if err != nil {
 		log.Fatalf("failed to initialize config list store: %v", err.Error())
+	}
+
+	showAboutDialog := func() {
+		(*ws.ShowMessageDialog)(
+			fmt.Sprintf(
+				"%v\n\nVersion: %v",
+				c.AboutMessage,
+				c.VERSION,
+			),
+			gtk.MESSAGE_INFO,
+		)
 	}
 
 	saveConfAsFn := func() {
@@ -168,20 +200,6 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 		ui.UpdateResults(ws, false)
 	}
 
-	showMessageDialog := func(m string, t gtk.MessageType) {
-		d := gtk.MessageDialogNew(
-			ws.Win,
-			gtk.DIALOG_MODAL,
-			t,
-			gtk.BUTTONS_OK,
-			"%s",
-			m,
-		)
-		log.Println(m)
-		d.Run()
-		d.Destroy()
-	}
-
 	// instantiation of graphical components begins next
 
 	win, rootBox, header, mbtn, menu := ui.GetMainWindowRootElements(application)
@@ -206,8 +224,6 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	addConfItemBtn, delConfItemBtn, cloneConfItemBtn := ui.GetConfEditButtons(ws)
 	hideInactiveCheckbox := ui.GetHideInactiveCheckbox(ws)
 
-	ws.ShowMessageDialog = &showMessageDialog
-
 	// all graphical components have been instantiated now - the next part
 	// is to connect signals, functions, and accelerators
 
@@ -220,6 +236,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	loadConfCurrentWindowAction := glib.SimpleActionNew(c.ActionLoadConfigCurrentWindow, nil)
 	loadConfNewWindowAction := glib.SimpleActionNew(c.ActionLoadConfigNewWindow, nil)
 	getStatsWindowAction := glib.SimpleActionNew(c.ActionGetStats, nil)
+	showAboutDialogAction := glib.SimpleActionNew(c.ActionAbout, nil)
 
 	// create and insert custom action group with prefix "fin" (for finances)
 	finActionGroup := glib.SimpleActionGroupNew()
@@ -230,6 +247,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	finActionGroup.AddAction(loadConfCurrentWindowAction)
 	finActionGroup.AddAction(loadConfNewWindowAction)
 	finActionGroup.AddAction(getStatsWindowAction)
+	finActionGroup.AddAction(showAboutDialogAction)
 
 	ws.Win.InsertActionGroup("fin", finActionGroup)
 	ws.Win.AddAction(closeWinAction)
@@ -248,6 +266,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	loadConfCurrentWindowAction.Connect(c.GtkSignalActivate, loadConfCurrentWindowFn)
 	loadConfNewWindowAction.Connect(c.GtkSignalActivate, loadConfNewWindowFn)
 	getStatsWindowAction.Connect(c.GtkSignalActivate, getStats)
+	showAboutDialogAction.Connect(c.GtkSignalActivate, showAboutDialog)
 
 	// buttons
 	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)

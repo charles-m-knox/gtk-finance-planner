@@ -159,16 +159,17 @@ func GetMainWindowRootElements(application *gtk.Application) (
 	// Other prefixes can be added to widgets via InsertActionGroup
 	// example:
 	// menu.Append("Custom Panic", "custom.panic")
-	menu.Append("Save", "fin.saveOpenConfig")
-	menu.Append("Save as...", "fin.saveConfig")
-	menu.Append("Open...", "fin.loadConfigCurrentWindow")
-	menu.Append("Open in new window...", "fin.loadConfigNewWindow")
-	menu.Append("Save results...", "fin.saveResults")
-	menu.Append("Copy results to clipboard", "fin.copyResults")
-	menu.Append("Show statistics", "fin.getStats")
-	menu.Append("New Window", "app.new")
-	menu.Append("Close Window", "win.close")
-	menu.Append("Quit", "app.quit")
+	menu.Append(c.MenuItemSave, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionSaveOpenConfig))
+	menu.Append(c.MenuItemSaveAs, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionSaveConfig))
+	menu.Append(c.MenuItemOpen, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionLoadConfigCurrentWindow))
+	menu.Append(c.MenuItemOpenNewWindow, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionLoadConfigNewWindow))
+	menu.Append(c.MenuItemSaveResults, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionSaveResults))
+	menu.Append(c.MenuItemCopyResults, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionCopyResults))
+	menu.Append(c.MenuItemShowStats, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionGetStats))
+	menu.Append(c.MenuItemAbout, fmt.Sprintf("%v.%v", c.ActionGroupFin, c.ActionAbout))
+	menu.Append(c.MenuItemNewWindow, fmt.Sprintf("%v.%v", c.ActionGroupApp, c.ActionNew))
+	menu.Append(c.MenuItemCloseWindow, fmt.Sprintf("%v.%v", c.ActionGroupWin, c.ActionClose))
+	menu.Append(c.MenuItemQuit, fmt.Sprintf("%v.%v", c.ActionGroupApp, c.ActionQuit))
 
 	return win, rootBox, header, mbtn, menu
 }
