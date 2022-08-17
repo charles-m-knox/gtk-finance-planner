@@ -1,6 +1,12 @@
 package constants
 
-import "github.com/gotk3/gotk3/glib"
+import (
+	"path/filepath"
+
+	"github.com/gotk3/gotk3/glib"
+)
+
+var DefaultConfFilePath = filepath.FromSlash(".config/finance-planner")
 
 const (
 	Day     = "Day"
@@ -13,7 +19,6 @@ const (
 	UISpacer = 10 // allows consistent spacing between all elements
 
 	DefaultConfFileName = "conf.json"
-	DefaultConfFilePath = ".config/finance-planner"
 
 	// TODO: get a proper reverse fqdn for this eventually
 	GtkAppID = "dev.cmcode.gtk-finance-planner"
