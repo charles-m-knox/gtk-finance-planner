@@ -9,7 +9,7 @@ import (
 var DefaultConfFilePath = filepath.FromSlash(".config/finance-planner")
 
 const (
-	VERSION      = "0.0.2"
+	VERSION      = "0.0.3"
 	AboutMessage = "Finance Planner\n\nA way to manage recurring transactions.\n\nSource code: https://gitea.cmcode.dev/cmcode/gtk-finance-planner"
 
 	Day     = "Day"

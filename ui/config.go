@@ -45,10 +45,22 @@ func DelConfItem(ws *state.WinState) {
 func AddConfItem(ws *state.WinState) {
 	newTX := lib.GetNewTX()
 	newTX.Order = len(*ws.TX) + 1
-	*ws.TX = append(*ws.TX, lib.GetNewTX())
+	*ws.TX = append(*ws.TX, newTX)
+
+	// scroll to end of vertical view, since new conf items are added at
+	// the bottom
+	ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(65535)
+	// set the value again
+	ws.ConfigVScroll = float64(65535)
 
 	UpdateResults(ws, false)
 	SyncConfigListStore(ws)
+
+	// set the value again, because SyncConfigListStore will take note of the
+	// scroll position and then set it to that original value a brief period
+	// later
+	ws.ConfigVScroll = float64(65535)
+	ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(65535)
 }
 
 func CloneConfItem(ws *state.WinState) {

@@ -127,6 +127,7 @@ type Result struct { // csv/table output row
 // GetNewTX returns an empty transaction with sensible defaults.
 func GetNewTX() TX {
 	return TX{
+		Order:     0,
 		Amount:    -500,
 		Active:    true,
 		Name:      c.New,
