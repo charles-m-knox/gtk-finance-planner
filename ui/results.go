@@ -184,12 +184,18 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 
 	stDateInputUpdate := func(e *gtk.Entry) {
 		s, _ := e.GetText()
+		if s == "" {
+			e.SetText("")
+			return
+		}
+
 		y, m, d := lib.ParseYearMonthDateString(s)
-		if s == "" || (y == 0 && m == 0 && d == 0) {
+		if y == 0 && m == 0 && d == 0 {
 			e.SetText("")
 			(*ws.ShowMessageDialog)(c.MsgInvalidDateInput, gtk.MESSAGE_ERROR)
 			return
 		}
+
 		ws.StartDate = fmt.Sprintf("%v-%v-%v", y, m, d)
 		e.SetText(ws.StartDate)
 		UpdateResults(ws, true)
@@ -197,8 +203,14 @@ func GetResultsInputs(ws *state.WinState) (*gtk.Entry, *gtk.Entry, *gtk.Entry) {
 
 	endDateInputUpdate := func(e *gtk.Entry) {
 		s, _ := e.GetText()
+		if s == "" {
+			e.SetText("")
+			return
+		}
+
 		y, m, d := lib.ParseYearMonthDateString(s)
-		if s == "" || (y == 0 && m == 0 && d == 0) {
+
+		if y == 0 && m == 0 && d == 0 {
 			e.SetText("")
 			(*ws.ShowMessageDialog)(c.MsgInvalidDateInput, gtk.MESSAGE_ERROR)
 			return
