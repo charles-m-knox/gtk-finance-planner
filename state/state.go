@@ -18,7 +18,7 @@ type WinState struct {
 	StartingBalance      int
 	StartDate            string
 	EndDate              string
-	SelectedConfigItems  []int
+	SelectedConfIDs      map[string]bool
 	ShowMessageDialog    *func(m string, t gtk.MessageType)
 	ConfigListStore      *gtk.ListStore
 	ResultsListStore     *gtk.ListStore

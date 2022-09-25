@@ -17,6 +17,8 @@ import (
 
 	c "finance-planner/constants"
 
+	"github.com/google/uuid"
+	"github.com/gotk3/gotk3/gtk"
 	"github.com/teambition/rrule-go"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -93,15 +95,18 @@ type TX struct { // transaction
 	// https://labix.org/python-dateutil/#head-88ab2bc809145fcf75c074817911575616ce7caf
 	RRule string `json:"rrule"`
 	// for when users don't want to use the rrules:
-	Frequency   string `json:"frequency"`
-	Interval    int    `json:"interval"`
-	Weekdays    []int  `json:"weekdays"` // monday starts on 0
-	StartsDay   int    `json:"startsDay"`
-	StartsMonth int    `json:"startsMonth"`
-	StartsYear  int    `json:"startsYear"`
-	EndsDay     int    `json:"endsDay"`
-	EndsMonth   int    `json:"endsMonth"`
-	EndsYear    int    `json:"endsYear"`
+	Frequency   string    `json:"frequency"`
+	Interval    int       `json:"interval"`
+	Weekdays    []int     `json:"weekdays"` // monday starts on 0
+	StartsDay   int       `json:"startsDay"`
+	StartsMonth int       `json:"startsMonth"`
+	StartsYear  int       `json:"startsYear"`
+	EndsDay     int       `json:"endsDay"`
+	EndsMonth   int       `json:"endsMonth"`
+	EndsYear    int       `json:"endsYear"`
+	ID          string    `json:"id"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
 type PreCalculatedResult struct {
@@ -122,10 +127,14 @@ type Result struct { // csv/table output row
 	DayTransactionNames      string
 	DiffFromStart            int
 	DayTransactionNamesSlice []string
+	ID                       string
+	CreatedAt                string
+	UpdatedAt                string
 }
 
 // GetNewTX returns an empty transaction with sensible defaults.
 func GetNewTX() TX {
+	now := time.Now()
 	return TX{
 		Order:     0,
 		Amount:    -500,
@@ -133,12 +142,15 @@ func GetNewTX() TX {
 		Name:      c.New,
 		Frequency: c.WEEKLY,
 		Interval:  1,
+		ID:        uuid.NewString(),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 }
 
-// DoesTXHaveWeekday checks if a recurring transaction definition contains
+// HasWeekday checks if a recurring transaction definition contains
 // the specified weekday as an rrule recurrence day of the week.
-func (tx *TX) DoesTXHaveWeekday(weekday int) bool {
+func (tx *TX) HasWeekday(weekday int) bool {
 	for _, d := range tx.Weekdays {
 		if weekday == d {
 			return true
@@ -477,6 +489,113 @@ func RemoveTXAtIndex(txs []TX, i int) []TX {
 	return append(txs[:i], txs[i+1:]...)
 }
 
+// RemoveTXByID manipulates an input TX slice by removing a TX with the provided
+// id.
+func RemoveTXByID(txs *[]TX, id string) {
+	for i := range *txs {
+		tx := (*txs)[i]
+
+		if tx.ID != id {
+			continue
+		}
+
+		*txs = RemoveTXAtIndex(*txs, i)
+		break
+	}
+}
+
+// GetTXByID finds the index of a TX for the provided id, returning an error
+// and -1 if not present.
+func GetTXByID(txs *[]TX, id string) (int, error) {
+	for i := range *txs {
+		tx := (*txs)[i]
+
+		if tx.ID != id {
+			continue
+		}
+
+		return i, nil
+	}
+
+	return -1, fmt.Errorf("not present")
+}
+
+// GetListStoreValue retrieves a value from a GTK list store during iteration
+// of a tree.
+func GetListStoreValue(
+	ls *gtk.ListStore,
+	iter *gtk.TreeIter,
+	col int,
+) (result interface{}, err error) {
+	gv, err := ls.GetValue(iter, col)
+	if err != nil {
+		return result, fmt.Errorf(
+			"failed to get value from config list store: %v",
+			err.Error(),
+		)
+	}
+
+	// marshal the value into a Go-native data type
+	val, err := gv.GoValue()
+	if err != nil {
+		return result, fmt.Errorf(
+			"failed to get val string: %v",
+			err.Error(),
+		)
+	}
+
+	return val, nil
+}
+
+// GetTXIDByGTKIndex attempts to find the ID corresponding to the provided
+// index value `i` within the GTK ListStore. For example, if row 5 is selected,
+// this will return the ID of the TX at row 5 (as currently displayed).
+// Returns an empty string if the value is not found.
+// TODO: This is unused but may be useful in the future.
+func GetTXIDByGTKIndex(ls *gtk.ListStore, i int) string {
+	id := ""
+
+	iterFn := func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
+		if searchPath.String() != fmt.Sprintf("%v", i) {
+			return false
+		}
+
+		val, err := GetListStoreValue(ls, iter, c.COLUMN_ID)
+		if err != nil {
+			log.Printf("get TX ID by list store index: %v", err.Error())
+		}
+
+		id = val.(string)
+
+		return true
+	}
+
+	ls.ForEach(iterFn)
+
+	return id
+}
+
+func GetTXIDByListStorePath(ls *gtk.ListStore, path *gtk.TreePath) (string, error) {
+	ps := path.String()
+
+	iter, err := ls.GetIter(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to get iter for path %v: %v", ps, err.Error())
+	}
+
+	value, err := ls.GetValue(iter, c.COLUMN_ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get value for path %v: %v", ps, err.Error())
+	}
+
+	id, err := value.GetString()
+	if err != nil {
+		return "", fmt.Errorf("failed to get string-value for id, by path %v: %v", ps, err.Error())
+	}
+
+	return id, nil
+}
+
 // GenerateResultsFromDateStrings takes an input start and end date (either can
 // be the default '0-0-0' values, in which case it uses today for the start,
 // and a year from now for the end), and calculates all of the calculable
@@ -790,4 +909,18 @@ func ValidateTransactions(tx *[]TX) error {
 	}
 
 	return nil
+}
+
+// GetLargestOrder returns the highest "Order" present in a list of
+// transactions.
+func GetLargestOrder(txs []TX) int {
+	m := -1
+
+	for i := range txs {
+		if txs[i].Order > m {
+			m = txs[i].Order
+		}
+	}
+
+	return m
 }

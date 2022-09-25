@@ -70,16 +70,16 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	)
 
 	ws = &state.WinState{
-		HideInactive:        false,
-		ConfigColumnSort:    c.None,
-		OpenFileName:        filename,
-		StartingBalance:     50000,
-		StartDate:           lib.GetNowDateString(),
-		EndDate:             lib.GetDefaultEndDateString(),
-		SelectedConfigItems: []int{},
-		TX:                  &[]lib.TX{},
-		Results:             &[]lib.Result{},
-		App:                 application,
+		HideInactive:     false,
+		ConfigColumnSort: c.None,
+		OpenFileName:     filename,
+		StartingBalance:  50000,
+		StartDate:        lib.GetNowDateString(),
+		EndDate:          lib.GetDefaultEndDateString(),
+		SelectedConfIDs:  make(map[string]bool),
+		TX:               &[]lib.TX{},
+		Results:          &[]lib.Result{},
+		App:              application,
 	}
 
 	// the shared function ShowMessageDialog should be initialized first,

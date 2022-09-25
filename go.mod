@@ -8,4 +8,5 @@ require (
 	github.com/gotk3/gotk3 v0.6.1
 	github.com/teambition/rrule-go v1.7.2
 	golang.org/x/text v0.3.7
+	github.com/google/uuid v1.3.0
 )

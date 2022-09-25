@@ -12,75 +12,98 @@ import (
 	"finance-planner/lib"
 	"finance-planner/state"
 
+	"github.com/google/uuid"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
+// ClearAllSelections clears out the selected items in the config view
+func ClearAllSelections(ws *state.WinState) {
+	ws.SelectedConfIDs = make(map[string]bool)
+}
+
 func DelConfItem(ws *state.WinState) {
-	if len(ws.SelectedConfigItems) > 0 && len(*ws.TX) > 1 {
-		// remove the conf item from the UserTX config
-		// TODO: remove this spammy logging once things are more efficient
-		log.Println(ws.SelectedConfigItems)
-		// newUserTX := []lib.TX{}
-		// for _, i := range ws.SelectedConfigItems {
-		for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
-			if ws.SelectedConfigItems[i] > len(*ws.TX) {
-				return
-			}
-			// TODO: remove this logging, but only once you've gotten rid
-			// of weird edge cases - for example, clearing the tree view's
-			// list store with any selected items causes a large number of
-			// selection changes (this is probably very inefficient). To
-			// address this, you need to figure out how to un-select values
-			log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
-			*ws.TX = lib.RemoveTXAtIndex(*ws.TX, ws.SelectedConfigItems[i])
+	if len(*ws.TX) <= 1 {
+		return
+	}
+
+	for id, sel := range ws.SelectedConfIDs {
+		if !sel {
+			continue
 		}
 
-		UpdateResults(ws, false)
-		SyncConfigListStore(ws)
-		ws.SelectedConfigItems = []int{}
+		lib.RemoveTXByID(ws.TX, id)
 	}
+
+	ClearAllSelections(ws)
+
+	UpdateResults(ws, false)
+	SyncConfigListStore(ws)
 }
 
 func AddConfItem(ws *state.WinState) {
-	newTX := lib.GetNewTX()
-	newTX.Order = len(*ws.TX) + 1
-	*ws.TX = append(*ws.TX, newTX)
+	n := lib.GetNewTX()
+
+	max := lib.GetLargestOrder(*ws.TX)
+
+	n.Order = max + 1
+
+	*ws.TX = append(*ws.TX, n)
 
 	// scroll to end of vertical view, since new conf items are added at
 	// the bottom
-	ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(65535)
-	// set the value again
-	ws.ConfigVScroll = float64(65535)
+	SetConfigScrollPosition(ws, 65535, -1)
+
+	ClearAllSelections(ws)
 
 	UpdateResults(ws, false)
 	SyncConfigListStore(ws)
 
-	// set the value again, because SyncConfigListStore will take note of the
-	// scroll position and then set it to that original value a brief period
-	// later
-	ws.ConfigVScroll = float64(65535)
-	ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(65535)
+	RestoreConfigScrollPosition(ws)
 }
 
 func CloneConfItem(ws *state.WinState) {
-	if len(ws.SelectedConfigItems) > 0 {
-		log.Println(ws.SelectedConfigItems)
-		for i := len(ws.SelectedConfigItems) - 1; i >= 0; i-- {
-			// TODO: should this be len(*ws.TX) - 1?
-			if ws.SelectedConfigItems[i] > len(*ws.TX) {
-				return
-			}
-			log.Println(i, ws.SelectedConfigItems, ws.SelectedConfigItems[i])
-			*ws.TX = append(
-				*ws.TX,
-				(*ws.TX)[ws.SelectedConfigItems[i]])
-			(*ws.TX)[len(*ws.TX)-1].Order = len(*ws.TX)
+	if len(ws.SelectedConfIDs) <= 0 {
+		return
+	}
+
+	now := time.Now()
+
+	max := lib.GetLargestOrder(*ws.TX)
+
+	for id, sel := range ws.SelectedConfIDs {
+		if !sel {
+			continue
 		}
 
-		UpdateResults(ws, false)
-		SyncConfigListStore(ws)
+		i, err := lib.GetTXByID(ws.TX, id)
+		if err != nil {
+			log.Printf("config item with id=%v was missing", id)
+			continue
+		}
+
+		*ws.TX = append(
+			*ws.TX,
+			(*ws.TX)[i],
+		)
+
+		// j is the index of the item we just added
+		j := len(*ws.TX) - 1
+
+		// update the latest item in the list
+		(*ws.TX)[j].Order = max + 1
+		(*ws.TX)[j].UpdatedAt = now
+		(*ws.TX)[j].CreatedAt = now
+		(*ws.TX)[j].ID = uuid.NewString()
+
+		// keep incrementing the max order
+		max += 1
 	}
+
+	ClearAllSelections(ws)
+
+	UpdateResults(ws, false)
+	SyncConfigListStore(ws)
 }
 
 // GetTXAsRow builds a GTK treeview-compatible set of fields & columns for a
@@ -95,16 +118,19 @@ func GetTXAsRow(tx *lib.TX) (cells []interface{}, columns []int) {
 		tx.Name,                 // tx.MarkupText(tx.Name),
 		tx.Frequency,            // tx.MarkupText(tx.Frequency),
 		fmt.Sprint(tx.Interval), // tx.MarkupText(fmt.Sprint(tx.Interval)),
-		tx.DoesTXHaveWeekday(c.WeekdayMondayInt),
-		tx.DoesTXHaveWeekday(c.WeekdayTuesdayInt),
-		tx.DoesTXHaveWeekday(c.WeekdayWednesdayInt),
-		tx.DoesTXHaveWeekday(c.WeekdayThursdayInt),
-		tx.DoesTXHaveWeekday(c.WeekdayFridayInt),
-		tx.DoesTXHaveWeekday(c.WeekdaySaturdayInt),
-		tx.DoesTXHaveWeekday(c.WeekdaySundayInt),
+		tx.HasWeekday(c.WeekdayMondayInt),
+		tx.HasWeekday(c.WeekdayTuesdayInt),
+		tx.HasWeekday(c.WeekdayWednesdayInt),
+		tx.HasWeekday(c.WeekdayThursdayInt),
+		tx.HasWeekday(c.WeekdayFridayInt),
+		tx.HasWeekday(c.WeekdaySaturdayInt),
+		tx.HasWeekday(c.WeekdaySundayInt),
 		fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay), // tx.MarkupText(fmt.Sprintf("%v-%v-%v", tx.StartsYear, tx.StartsMonth, tx.StartsDay)),
 		fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay),       // tx.MarkupText(fmt.Sprintf("%v-%v-%v", tx.EndsYear, tx.EndsMonth, tx.EndsDay)),
 		tx.Note, // tx.MarkupText(tx.Note),
+		tx.ID,
+		tx.CreatedAt.Format(time.RFC3339),
+		tx.UpdatedAt.Format(time.RFC3339),
 	}
 
 	columns = []int{}
@@ -139,130 +165,138 @@ func addConfigTreeRow(ls *gtk.ListStore, tx *lib.TX) error {
 func ConfigChange(ws *state.WinState, path string, column int, newValue interface{}) {
 	// start by iterating through the list store
 	iterFn := func(model *gtk.TreeModel, searchPath *gtk.TreePath, iter *gtk.TreeIter) bool {
-		if searchPath.String() == path {
-			// key off of the Order column, which contains the unique identifier
-			// TODO: elsewhere you need to add a function to assert that Order
-			// is unique
-			gv, err := ws.ConfigListStore.GetValue(iter, c.COLUMN_ORDER)
-			if err != nil {
-				log.Printf("failed to get value from config list store: %v", err.Error())
-			}
-
-			// convert the value to an int
-			val, err := gv.GoValue()
-			if err != nil {
-				log.Printf("failed to get val string: %v", err.Error())
-			}
-
-			valInt := val.(int)
-			// TODO: clean this up
-			// log.Printf("order from list store=%v", valInt)
-
-			// now that we've found the unique ID for this TX definition, we can
-			// proceed to find the actual TX definition
-			for i := range *ws.TX {
-				if (*ws.TX)[i].Order == valInt {
-					// now we've found the actual TX definition and we can
-					// make changes to the TX and propagate it to the ListStore
-					if column == c.COLUMN_ORDER {
-						// TODO: validate that the newValue is of int type
-						// before unsafe type assertion
-						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
-						if err != nil {
-							log.Printf(
-								"failed to convert interval %v to int: %v",
-								newValue,
-								err.Error(),
-							)
-						}
-						nvi := int(nv)
-						if nvi <= 0 {
-							nvi = 1
-						}
-						(*ws.TX)[i].Order = nvi
-					} else if column == c.COLUMN_AMOUNT {
-						nv := int(lib.ParseDollarAmount(newValue.(string), false))
-						(*ws.TX)[i].Amount = nv
-					} else if column == c.COLUMN_ACTIVE {
-						nv := !(newValue.(bool))
-						(*ws.TX)[i].Active = nv
-					} else if column == c.COLUMN_NAME {
-						nv := newValue.(string)
-						(*ws.TX)[i].Name = nv
-					} else if column == c.COLUMN_FREQUENCY {
-						// TODO: refactor for unit testability
-						nv := strings.ToUpper(strings.TrimSpace(newValue.(string)))
-						if nv == c.Y {
-							nv = c.YEARLY
-						}
-						if nv == c.W {
-							nv = c.WEEKLY
-						}
-						if nv == c.M {
-							nv = c.MONTHLY
-						}
-						if nv != c.WEEKLY && nv != c.MONTHLY && nv != c.YEARLY {
-							(*ws.ShowMessageDialog)(c.MsgInvalidRecurrence, gtk.MESSAGE_ERROR)
-							break
-						}
-
-						(*ws.TX)[i].Frequency = nv
-					} else if column == c.COLUMN_INTERVAL {
-						nv, err := strconv.ParseInt(newValue.(string), 10, 64)
-						if err != nil {
-							(*ws.ShowMessageDialog)(fmt.Sprintf(
-								"failed to convert interval %v to int: %v",
-								newValue,
-								err.Error(),
-							), gtk.MESSAGE_ERROR)
-						}
-						if nv <= 0 {
-							nv = 1
-						}
-						(*ws.TX)[i].Interval = int(nv)
-					} else if column == c.COLUMN_STARTS {
-						nvs := newValue.(string)
-						yr, mo, day := lib.ParseYearMonthDateString(
-							strings.TrimSpace(nvs),
-						)
-						(*ws.TX)[i].StartsYear = yr
-						(*ws.TX)[i].StartsMonth = mo
-						(*ws.TX)[i].StartsDay = day
-					} else if column == c.COLUMN_ENDS {
-						// TODO: refactor similar code from above case
-						nvs := newValue.(string)
-						yr, mo, day := lib.ParseYearMonthDateString(
-							strings.TrimSpace(nvs),
-						)
-						(*ws.TX)[i].EndsYear = yr
-						(*ws.TX)[i].EndsMonth = mo
-						(*ws.TX)[i].EndsDay = day
-					} else if lib.IsWeekday(c.ConfigColumns[column]) {
-						// TODO: make this a little more polished; it probably
-						// doesn't need to be this involved
-						weekday := lib.WeekdayIndex[c.ConfigColumns[column]]
-						(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
-					} else if column == c.COLUMN_NOTE {
-						nv := newValue.(string)
-						(*ws.TX)[i].Note = nv
-					} else {
-						log.Printf(
-							"warning: column id %v was modified, but there is no case to handle it",
-							column,
-						)
-					}
-
-					cells, columns := GetTXAsRow(&(*ws.TX)[i])
-					ws.ConfigListStore.Set(iter, columns, cells)
-
-					break
-				}
-			}
-
-			return true
+		if searchPath.String() != path {
+			return false
 		}
 
-		return false
+		val, err := lib.GetListStoreValue(ws.ConfigListStore, iter, c.COLUMN_ID)
+		if err != nil {
+			log.Printf("config change error (list store value): %v", err.Error())
+		}
+
+		id := val.(string)
+
+		// now that we've found the unique ID for this TX definition, we can
+		// proceed to find the actual TX definition
+		for i := range *ws.TX {
+			if (*ws.TX)[i].ID != id && id != "" {
+				continue
+			}
+
+			// now we've found the actual TX definition and we can
+			// make changes to the TX and propagate it to the ListStore
+			switch column {
+			case c.COLUMN_ORDER:
+				// TODO: validate that the newValue is of int type
+				// before unsafe type assertion
+				nv, err := strconv.ParseInt(newValue.(string), 10, 64)
+				if err != nil {
+					log.Printf(
+						"failed to convert interval %v to int: %v",
+						newValue,
+						err.Error(),
+					)
+				}
+				nvi := int(nv)
+				if nvi <= 0 {
+					nvi = 1
+				}
+				(*ws.TX)[i].Order = nvi
+				break
+			case c.COLUMN_AMOUNT:
+				nv := int(lib.ParseDollarAmount(newValue.(string), false))
+				(*ws.TX)[i].Amount = nv
+				break
+			case c.COLUMN_ACTIVE:
+				nv := !(newValue.(bool))
+				(*ws.TX)[i].Active = nv
+				break
+			case c.COLUMN_NAME:
+				nv := newValue.(string)
+				(*ws.TX)[i].Name = nv
+				break
+			case c.COLUMN_FREQUENCY:
+				// TODO: refactor for unit testability
+				nv := strings.ToUpper(strings.TrimSpace(newValue.(string)))
+				if nv == c.Y {
+					nv = c.YEARLY
+				}
+				if nv == c.W {
+					nv = c.WEEKLY
+				}
+				if nv == c.M {
+					nv = c.MONTHLY
+				}
+				if nv != c.WEEKLY && nv != c.MONTHLY && nv != c.YEARLY {
+					(*ws.ShowMessageDialog)(c.MsgInvalidRecurrence, gtk.MESSAGE_ERROR)
+					break
+				}
+
+				(*ws.TX)[i].Frequency = nv
+				break
+			case c.COLUMN_INTERVAL:
+				nv, err := strconv.ParseInt(newValue.(string), 10, 64)
+				if err != nil {
+					(*ws.ShowMessageDialog)(fmt.Sprintf(
+						"failed to convert interval %v to int: %v",
+						newValue,
+						err.Error(),
+					), gtk.MESSAGE_ERROR)
+				}
+				if nv <= 0 {
+					nv = 1
+				}
+				(*ws.TX)[i].Interval = int(nv)
+				break
+			case c.COLUMN_STARTS:
+				nvs := newValue.(string)
+				yr, mo, day := lib.ParseYearMonthDateString(
+					strings.TrimSpace(nvs),
+				)
+				(*ws.TX)[i].StartsYear = yr
+				(*ws.TX)[i].StartsMonth = mo
+				(*ws.TX)[i].StartsDay = day
+				break
+			case c.COLUMN_ENDS:
+				// TODO: refactor similar code from above case
+				nvs := newValue.(string)
+				yr, mo, day := lib.ParseYearMonthDateString(
+					strings.TrimSpace(nvs),
+				)
+				(*ws.TX)[i].EndsYear = yr
+				(*ws.TX)[i].EndsMonth = mo
+				(*ws.TX)[i].EndsDay = day
+				break
+			case c.COLUMN_NOTE:
+				nv := newValue.(string)
+				(*ws.TX)[i].Note = nv
+				break
+			default:
+				if lib.IsWeekday(c.ConfigColumns[column]) {
+					// TODO: make this a little more polished; it probably
+					// doesn't need to be this involved
+					weekday := lib.WeekdayIndex[c.ConfigColumns[column]]
+					(*ws.TX)[i].Weekdays = lib.ToggleDayFromWeekdays((*ws.TX)[i].Weekdays, weekday)
+					break
+				}
+
+				log.Printf(
+					"warning: column id %v was modified, but there is no case to handle it",
+					column,
+				)
+
+				break
+			}
+
+			(*ws.TX)[i].UpdatedAt = time.Now()
+
+			cells, columns := GetTXAsRow(&(*ws.TX)[i])
+			ws.ConfigListStore.Set(iter, columns, cells)
+
+			break
+		}
+
+		return true
 	}
 
 	ws.ConfigListStore.ForEach(iterFn)
@@ -287,13 +321,25 @@ func ConfigChange(ws *state.WinState, path string, column int, newValue interfac
 	UpdateResults(ws, false)
 }
 
-// SaveConfigScrollPosition saves the current config scrolled window's vertical
+// SetConfigScrollPosition saves the current config scrolled window's vertical
 // and horizontal scrollbar positions, so that they can be recalled later. This
-// is typically followed by RestoreConfigScrollPosition.
-func SaveConfigScrollPosition(ws *state.WinState) {
-	if ws.ConfigScrolledWindow != nil {
+// is typically followed by RestoreConfigScrollPosition. To leave a value
+// unchanged, provide a value of -1.
+func SetConfigScrollPosition(ws *state.WinState, vert float64, horiz float64) {
+	if ws.ConfigScrolledWindow == nil {
+		return
+	}
+
+	if vert == -1 {
 		ws.ConfigVScroll = ws.ConfigScrolledWindow.GetVScrollbar().GetValue()
+	} else {
+		ws.ConfigVScroll = vert
+	}
+
+	if vert == -1 {
 		ws.ConfigHScroll = ws.ConfigScrolledWindow.GetHScrollbar().GetValue()
+	} else {
+		ws.ConfigVScroll = horiz
 	}
 }
 
@@ -314,27 +360,48 @@ func SaveConfigScrollPosition(ws *state.WinState) {
 // the size of the window when there isn't a gtk.ScrolledWindow yet, in
 // addition to nil pointer references.
 func RestoreConfigScrollPosition(ws *state.WinState) {
-	// recall the scrollbar position
-	if ws.ConfigScrolledWindow != nil {
-		go func() {
-			// log.Printf(
-			// 	"debug: restoring scroll bar to %v and %v",
-			// 	ws.ConfigVScroll,
-			// 	ws.ConfigHScroll,
-			// )
-
-			time.Sleep(200 * time.Millisecond)
-
-			ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(ws.ConfigVScroll)
-			ws.ConfigScrolledWindow.GetHScrollbar().GetAdjustment().SetValue(ws.ConfigHScroll)
-
-			ws.Win.ShowAll()
-
-			// reset the values
-			ws.ConfigVScroll = float64(0)
-			ws.ConfigHScroll = float64(0)
-		}()
+	if ws.ConfigScrolledWindow == nil {
+		return
 	}
+
+	// recall the scrollbar position
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+
+		if ws.ConfigScrolledWindow == nil {
+			return
+		}
+
+		// The following is a safe way of doing this one-liner:
+		// ws.ConfigScrolledWindow.GetVScrollbar().GetAdjustment().SetValue(ws.ConfigVScroll)
+
+		v := ws.ConfigScrolledWindow.GetVScrollbar()
+		if v != nil {
+			adj := v.GetAdjustment()
+
+			if adj != nil {
+				adj.SetValue(ws.ConfigVScroll)
+			}
+		}
+
+		// Again, the following is a safe way of doing this one-liner:
+		// ws.ConfigScrolledWindow.GetHScrollbar().GetAdjustment().SetValue(ws.ConfigHScroll)
+
+		h := ws.ConfigScrolledWindow.GetHScrollbar()
+		if h != nil {
+			adj := h.GetAdjustment()
+
+			if adj != nil {
+				adj.SetValue(ws.ConfigHScroll)
+			}
+		}
+
+		ws.Win.ShowAll()
+
+		// reset the values
+		ws.ConfigVScroll = float64(0)
+		ws.ConfigHScroll = float64(0)
+	}()
 }
 
 func SetConfigSortColumn(ws *state.WinState, column int) {
@@ -350,6 +417,9 @@ func SetConfigSortColumn(ws *state.WinState, column int) {
 			err.Error(),
 		), gtk.MESSAGE_ERROR)
 	}
+
+	ClearAllSelections(ws)
+
 	UpdateResults(ws, false)
 }
 
@@ -711,6 +781,38 @@ func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	return notesColumn, nil
 }
 
+func getReadOnlyColumn(ws *state.WinState, name string, id int) (tvc *gtk.TreeViewColumn, err error) {
+	rend, err := gtk.CellRendererTextNew()
+	if err != nil {
+		return tvc, fmt.Errorf(
+			"unable to create %v column renderer: %v",
+			name,
+			err.Error(),
+		)
+	}
+	rend.SetProperty("editable", false)
+	rend.SetVisible(true)
+	col, err := gtk.TreeViewColumnNewWithAttribute(name, rend, "text", id)
+	if err != nil {
+		return tvc, fmt.Errorf(
+			"unable to create %v cell column: %v",
+			name,
+			err.Error(),
+		)
+	}
+	col.SetResizable(true)
+	col.SetClickable(true)
+	col.SetVisible(true)
+	header, err := col.GetButton()
+	if err != nil {
+		log.Printf("failed to get %v column header button: %v", name, err.Error())
+	}
+
+	header.ToWidget().Connect(c.GtkSignalClicked, func() { SetConfigSortColumn(ws, id) })
+
+	return col, nil
+}
+
 // Creates a tree view and the list store that holds its data
 func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 	treeView, err := gtk.TreeViewNew()
@@ -801,6 +903,24 @@ func setupConfigTreeView(ws *state.WinState) (tv *gtk.TreeView, err error) {
 	}
 	treeView.AppendColumn(notesColumn)
 
+	idColumn, err := getReadOnlyColumn(ws, c.ColumnID, c.COLUMN_ID)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config notes column: %v", err.Error())
+	}
+	treeView.AppendColumn(idColumn)
+
+	createdColumn, err := getReadOnlyColumn(ws, c.ColumnCreatedAt, c.COLUMN_CREATEDAT)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config notes column: %v", err.Error())
+	}
+	treeView.AppendColumn(createdColumn)
+
+	updatedColumn, err := getReadOnlyColumn(ws, c.ColumnUpdatedAt, c.COLUMN_UPDATEDAT)
+	if err != nil {
+		return tv, fmt.Errorf("failed to create config notes column: %v", err.Error())
+	}
+	treeView.AppendColumn(updatedColumn)
+
 	treeView.SetModel(ws.ConfigListStore)
 
 	return treeView, nil
@@ -826,6 +946,9 @@ func GetNewConfigListStore() (ls *gtk.ListStore, err error) {
 		glib.TYPE_STRING,
 		glib.TYPE_STRING,
 		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
+		glib.TYPE_STRING,
 	)
 	if err != nil {
 		return ls, fmt.Errorf("unable to create config list store: %v", err.Error())
@@ -839,128 +962,124 @@ func SyncConfigListStore(ws *state.WinState) error {
 	sort.SliceStable(
 		*ws.TX,
 		func(i, j int) bool {
+			tj := (*ws.TX)[j]
+			ti := (*ws.TX)[i]
+
+			switch ws.ConfigColumnSort {
+
 			// invisible order column (default when no sort is set)
-			if ws.ConfigColumnSort == c.None {
-				return (*ws.TX)[j].Order > (*ws.TX)[i].Order
-			}
+			case c.None:
+				return tj.Order > ti.Order
 
 			// Order
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnOrder, c.Asc) {
-				return (*ws.TX)[j].Order > (*ws.TX)[i].Order
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnOrder, c.Desc) {
-				return (*ws.TX)[i].Order > (*ws.TX)[j].Order
-			}
+			case fmt.Sprintf("%v%v", c.ColumnOrder, c.Asc):
+				return tj.Order > ti.Order
+			case fmt.Sprintf("%v%v", c.ColumnOrder, c.Desc):
+				return ti.Order > tj.Order
 
 			// active
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnActive, c.Asc) {
-				return (*ws.TX)[j].Active
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnActive, c.Desc) {
-				return (*ws.TX)[i].Active
-			}
+			case fmt.Sprintf("%v%v", c.ColumnActive, c.Asc):
+				return tj.Active
+			case fmt.Sprintf("%v%v", c.ColumnActive, c.Desc):
+				return ti.Active
 
 			// weekdays
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayMonday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdayMondayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayMonday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdayMondayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayTuesday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdayTuesdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayTuesday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdayTuesdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayWednesday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdayWednesdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayWednesday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdayWednesdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayThursday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdayThursdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayThursday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdayThursdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayFriday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdayFridayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdayFriday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdayFridayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdaySaturday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdaySaturdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdaySaturday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdaySaturdayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdaySunday, c.Asc) {
-				return (*ws.TX)[j].DoesTXHaveWeekday(c.WeekdaySundayInt)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.WeekdaySunday, c.Desc) {
-				return (*ws.TX)[i].DoesTXHaveWeekday(c.WeekdaySundayInt)
-			}
+			case fmt.Sprintf("%v%v", c.WeekdayMonday, c.Asc):
+				return tj.HasWeekday(c.WeekdayMondayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayMonday, c.Desc):
+				return ti.HasWeekday(c.WeekdayMondayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayTuesday, c.Asc):
+				return tj.HasWeekday(c.WeekdayTuesdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayTuesday, c.Desc):
+				return ti.HasWeekday(c.WeekdayTuesdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayWednesday, c.Asc):
+				return tj.HasWeekday(c.WeekdayWednesdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayWednesday, c.Desc):
+				return ti.HasWeekday(c.WeekdayWednesdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayThursday, c.Asc):
+				return tj.HasWeekday(c.WeekdayThursdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayThursday, c.Desc):
+				return ti.HasWeekday(c.WeekdayThursdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayFriday, c.Asc):
+				return tj.HasWeekday(c.WeekdayFridayInt)
+			case fmt.Sprintf("%v%v", c.WeekdayFriday, c.Desc):
+				return ti.HasWeekday(c.WeekdayFridayInt)
+			case fmt.Sprintf("%v%v", c.WeekdaySaturday, c.Asc):
+				return tj.HasWeekday(c.WeekdaySaturdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdaySaturday, c.Desc):
+				return ti.HasWeekday(c.WeekdaySaturdayInt)
+			case fmt.Sprintf("%v%v", c.WeekdaySunday, c.Asc):
+				return tj.HasWeekday(c.WeekdaySundayInt)
+			case fmt.Sprintf("%v%v", c.WeekdaySunday, c.Desc):
+				return ti.HasWeekday(c.WeekdaySundayInt)
 
-			// other numeric columns
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnAmount, c.Asc) {
-				return (*ws.TX)[j].Amount > (*ws.TX)[i].Amount
+			// other columns
+			case fmt.Sprintf("%v%v", c.ColumnAmount, c.Asc):
+				return tj.Amount > ti.Amount
+			case fmt.Sprintf("%v%v", c.ColumnAmount, c.Desc):
+				return ti.Amount > tj.Amount
+
+			case fmt.Sprintf("%v%v", c.ColumnFrequency, c.Asc):
+				return tj.Frequency > ti.Frequency
+			case fmt.Sprintf("%v%v", c.ColumnFrequency, c.Desc):
+				return ti.Frequency > tj.Frequency
+
+			case fmt.Sprintf("%v%v", c.ColumnInterval, c.Asc):
+				return tj.Interval > ti.Interval
+			case fmt.Sprintf("%v%v", c.ColumnInterval, c.Desc):
+				return ti.Interval > tj.Interval
+			case fmt.Sprintf("%v%v", c.ColumnNote, c.Asc):
+
+				return strings.ToLower(tj.Note) > strings.ToLower(ti.Note)
+			case fmt.Sprintf("%v%v", c.ColumnNote, c.Desc):
+				return strings.ToLower(ti.Note) > strings.ToLower(tj.Note)
+
+			case fmt.Sprintf("%v%v", c.ColumnName, c.Asc):
+				return strings.ToLower(tj.Name) > strings.ToLower(ti.Name)
+			case fmt.Sprintf("%v%v", c.ColumnName, c.Desc):
+				return strings.ToLower(ti.Name) > strings.ToLower(tj.Name)
+
+			case fmt.Sprintf("%v%v", c.ColumnID, c.Asc):
+				return strings.ToLower(tj.ID) > strings.ToLower(ti.ID)
+			case fmt.Sprintf("%v%v", c.ColumnID, c.Desc):
+				return strings.ToLower(ti.ID) > strings.ToLower(tj.ID)
+
+			case fmt.Sprintf("%v%v", c.ColumnCreatedAt, c.Asc):
+				return tj.CreatedAt.After(ti.CreatedAt)
+			case fmt.Sprintf("%v%v", c.ColumnCreatedAt, c.Desc):
+				return ti.CreatedAt.Before(tj.CreatedAt)
+
+			case fmt.Sprintf("%v%v", c.ColumnUpdatedAt, c.Asc):
+				return tj.UpdatedAt.After(ti.UpdatedAt)
+			case fmt.Sprintf("%v%v", c.ColumnUpdatedAt, c.Desc):
+				return ti.UpdatedAt.Before(tj.UpdatedAt)
+
+			case fmt.Sprintf("%v%v", c.ColumnStarts, c.Asc):
+				ist := fmt.Sprintf("%v-%v-%v", tj.StartsYear, tj.StartsMonth, tj.StartsDay)
+				jst := fmt.Sprintf("%v-%v-%v", ti.StartsYear, ti.StartsMonth, ti.StartsDay)
+				return ist > jst
+			case fmt.Sprintf("%v%v", c.ColumnStarts, c.Desc):
+				ist := fmt.Sprintf("%v-%v-%v", tj.StartsYear, tj.StartsMonth, tj.StartsDay)
+				jst := fmt.Sprintf("%v-%v-%v", ti.StartsYear, ti.StartsMonth, ti.StartsDay)
+				return jst > ist
+
+			case fmt.Sprintf("%v%v", c.ColumnEnds, c.Asc):
+				jend := fmt.Sprintf("%v-%v-%v", tj.EndsYear, tj.EndsMonth, tj.EndsDay)
+				iend := fmt.Sprintf("%v-%v-%v", ti.EndsYear, ti.EndsMonth, ti.EndsDay)
+				return jend > iend
+			case fmt.Sprintf("%v%v", c.ColumnEnds, c.Desc):
+				jend := fmt.Sprintf("%v-%v-%v", tj.EndsYear, tj.EndsMonth, tj.EndsDay)
+				iend := fmt.Sprintf("%v-%v-%v", ti.EndsYear, ti.EndsMonth, ti.EndsDay)
+				return iend > jend
+
+			default:
+				return false
+				// return txs[j].Date.After(txs[i].Date)
 			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnAmount, c.Desc) {
-				return (*ws.TX)[i].Amount > (*ws.TX)[j].Amount
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnFrequency, c.Asc) {
-				return (*ws.TX)[j].Frequency > (*ws.TX)[i].Frequency
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnFrequency, c.Desc) {
-				return (*ws.TX)[i].Frequency > (*ws.TX)[j].Frequency
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnInterval, c.Asc) {
-				return (*ws.TX)[j].Interval > (*ws.TX)[i].Interval
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnInterval, c.Desc) {
-				return (*ws.TX)[i].Interval > (*ws.TX)[j].Interval
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnNote, c.Asc) {
-				return strings.ToLower((*ws.TX)[j].Note) > strings.ToLower((*ws.TX)[i].Note)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnNote, c.Desc) {
-				return strings.ToLower((*ws.TX)[i].Note) > strings.ToLower((*ws.TX)[j].Note)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnName, c.Asc) {
-				return strings.ToLower((*ws.TX)[j].Name) > strings.ToLower((*ws.TX)[i].Name)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnName, c.Desc) {
-				return strings.ToLower((*ws.TX)[i].Name) > strings.ToLower((*ws.TX)[j].Name)
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnStarts, c.Asc) {
-				jstarts := fmt.Sprintf("%v-%v-%v", (*ws.TX)[j].StartsYear, (*ws.TX)[j].StartsMonth, (*ws.TX)[j].StartsDay)
-				istarts := fmt.Sprintf("%v-%v-%v", (*ws.TX)[i].StartsYear, (*ws.TX)[i].StartsMonth, (*ws.TX)[i].StartsDay)
-				return jstarts > istarts
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnStarts, c.Desc) {
-				jstarts := fmt.Sprintf("%v-%v-%v", (*ws.TX)[j].StartsYear, (*ws.TX)[j].StartsMonth, (*ws.TX)[j].StartsDay)
-				istarts := fmt.Sprintf("%v-%v-%v", (*ws.TX)[i].StartsYear, (*ws.TX)[i].StartsMonth, (*ws.TX)[i].StartsDay)
-				return istarts > jstarts
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnEnds, c.Asc) {
-				jends := fmt.Sprintf("%v-%v-%v", (*ws.TX)[j].EndsYear, (*ws.TX)[j].EndsMonth, (*ws.TX)[j].EndsDay)
-				iends := fmt.Sprintf("%v-%v-%v", (*ws.TX)[i].EndsYear, (*ws.TX)[i].EndsMonth, (*ws.TX)[i].EndsDay)
-				return jends > iends
-			}
-			if ws.ConfigColumnSort == fmt.Sprintf("%v%v", c.ColumnEnds, c.Desc) {
-				jEnds := fmt.Sprintf("%v-%v-%v", (*ws.TX)[j].EndsYear, (*ws.TX)[j].EndsMonth, (*ws.TX)[j].EndsDay)
-				iends := fmt.Sprintf("%v-%v-%v", (*ws.TX)[i].EndsYear, (*ws.TX)[i].EndsMonth, (*ws.TX)[i].EndsDay)
-				return iends > jEnds
-			}
-			return false
-			// return txs[j].Date.After(txs[i].Date)
 		},
 	)
 
-	SaveConfigScrollPosition(ws)
+	SetConfigScrollPosition(ws, -1, -1)
 
 	ws.ConfigListStore.Clear()
 
@@ -1054,28 +1173,35 @@ func GetConfigTab(ws *state.WinState) (*gtk.ScrolledWindow, *gtk.TreeView, *gtk.
 	if err != nil {
 		log.Fatalf("failed to set config tab label: %v", err.Error())
 	}
+
 	configTreeSelection, err := configTreeView.GetSelection()
 	if err != nil {
 		log.Fatalf("failed to get results tree view sel: %v", err.Error())
 	}
+
 	configTreeSelection.SetMode(gtk.SELECTION_MULTIPLE)
 
 	selectionChanged := func(s *gtk.TreeSelection) {
+		// reset the map of selected id's
+		ws.SelectedConfIDs = make(map[string]bool)
+
 		rows := s.GetSelectedRows(ws.ConfigListStore)
-		// items := make([]string, 0, rows.Length())
-		ws.SelectedConfigItems = []int{}
 
 		for l := rows; l != nil; l = l.Next() {
 			path := l.Data().(*gtk.TreePath)
-			i, _ := strconv.ParseInt(path.String(), 10, 64)
-			ws.SelectedConfigItems = append(ws.SelectedConfigItems, int(i))
-			// iter, _ := configListStore.GetIter(path)
-			// value, _ := configListStore.GetValue(iter, 0)
-			// log.Println(path, iter, value)
-			// str, _ := value.GetString()
-			// items = append(items, str)
+
+			id, err := lib.GetTXIDByListStorePath(ws.ConfigListStore, path)
+			if err != nil {
+				log.Printf("failed to retrieve id for path upon selection change: %v", err.Error())
+			}
+
+			if id == "" {
+				log.Printf("warning: empty id for selection path=%v", path.String())
+				continue
+			}
+
+			ws.SelectedConfIDs[id] = true
 		}
-		// log.Printf("selection changed: %v, %v", s, ws.SelectedConfigItems)
 	}
 
 	configTreeSelection.Connect(c.GtkSignalChanged, selectionChanged)
@@ -1128,6 +1254,7 @@ func LoadConfig(
 		if resp == int(gtk.RESPONSE_OK) {
 			// folder, _ := dialog.FileChooser.GetCurrentFolder()
 			// GetFilename includes the full path and file name
+
 			ws.OpenFileName = dialog.FileChooser.GetFilename()
 			if openInNewWindow {
 				p.Close()
@@ -1135,41 +1262,49 @@ func LoadConfig(
 				newWinState := primary(ws.App, ws.OpenFileName)
 				newWinState.Win.ShowAll()
 				return
-			} else {
-				*ws.TX, err = lib.LoadConfig(ws.OpenFileName)
-				if err != nil {
-					m := fmt.Sprintf("Failed to load config \"%v\": %v", ws.OpenFileName, err.Error())
-					d := gtk.MessageDialogNew(ws.Win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
-					log.Println(m)
-					d.Run()
-					d.Destroy()
-					p.Close()
-					p.Destroy()
-					return
-				}
-				extraDialogMessageText := ""
-				if len(*ws.TX) == 0 {
-					extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
-					newTX := lib.GetNewTX()
-					newTX.Order = 1
-					*ws.TX = []lib.TX{newTX}
-				}
+			}
 
-				SyncConfigListStore(ws)
-				UpdateResults(ws, false)
-				ws.Win.ShowAll()
-				ws.Notebook.SetCurrentPage(c.TAB_CONFIG)
-				ws.Header.SetSubtitle(ws.OpenFileName)
-				m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", ws.OpenFileName, extraDialogMessageText)
-				d := gtk.MessageDialogNew(ws.Win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
+			*ws.TX, err = lib.LoadConfig(ws.OpenFileName)
+
+			if err != nil {
+				m := fmt.Sprintf("Failed to load config \"%v\": %v", ws.OpenFileName, err.Error())
+				d := gtk.MessageDialogNew(ws.Win, gtk.DIALOG_MODAL, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, "%s", m)
 				log.Println(m)
-				p.Close()
-				p.Destroy()
 				d.Run()
 				d.Destroy()
+				p.Close()
+				p.Destroy()
 				return
 			}
+
+			extraDialogMessageText := ""
+
+			if len(*ws.TX) == 0 {
+				extraDialogMessageText = " The configuration was empty, so a sample recurring transaction has been added."
+				newTX := lib.GetNewTX()
+				newTX.Order = 1
+				*ws.TX = []lib.TX{newTX}
+			}
+
+			SyncConfigListStore(ws)
+			UpdateResults(ws, false)
+
+			ws.Win.ShowAll()
+			ws.Notebook.SetCurrentPage(c.TAB_CONFIG)
+			ws.Header.SetSubtitle(ws.OpenFileName)
+
+			m := fmt.Sprintf("Success! Loaded file \"%v\" successfully.%v", ws.OpenFileName, extraDialogMessageText)
+			d := gtk.MessageDialogNew(ws.Win, gtk.DIALOG_MODAL, gtk.MESSAGE_INFO, gtk.BUTTONS_OK, "%s", m)
+
+			log.Println(m)
+
+			p.Close()
+			p.Destroy()
+			d.Run()
+			d.Destroy()
+			return
 		}
+
 		p.Close()
 		p.Destroy()
 	})

@@ -180,6 +180,9 @@ const (
 	ColumnStarts    = "Starts"    // string
 	ColumnEnds      = "Ends"      // string
 	ColumnNote      = "Note"      // editable string
+	ColumnID        = "ID"
+	ColumnCreatedAt = "CreatedAt"
+	ColumnUpdatedAt = "UpdatedAt"
 
 	WeekdayMonday    = "Monday"
 	WeekdayTuesday   = "Tuesday"
@@ -207,6 +210,9 @@ var ConfigColumns = []string{
 	ColumnStarts,    // string
 	ColumnEnds,      // string
 	ColumnNote,      // editable string
+	ColumnID,
+	ColumnCreatedAt,
+	ColumnUpdatedAt,
 }
 
 var Weekdays = []string{
@@ -246,6 +252,9 @@ const (
 	COLUMN_STARTS           // string
 	COLUMN_ENDS             // string
 	COLUMN_NOTE             // editable string
+	COLUMN_ID               // non-editable strings
+	COLUMN_CREATEDAT        // non-editable strings
+	COLUMN_UPDATEDAT        // non-editable strings
 )
 
 var ConfigColumnTypes = []glib.Type{
@@ -262,6 +271,9 @@ var ConfigColumnTypes = []glib.Type{
 	glib.TYPE_BOOLEAN,
 	glib.TYPE_BOOLEAN,
 	glib.TYPE_BOOLEAN,
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
+	glib.TYPE_STRING,
 	glib.TYPE_STRING,
 	glib.TYPE_STRING,
 	glib.TYPE_STRING,
