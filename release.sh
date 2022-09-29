@@ -12,4 +12,6 @@ echo "${VER}"
 go get -v
 go build -v
 
+mkdir -p releases
+
 cp finance-planner "releases/finance-planner_${VER}_${OS}_${ARCH}"
