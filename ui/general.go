@@ -38,8 +38,6 @@ func createCheckboxColumn(title string, columnID int, radio bool, listStore *gtk
 	column.SetClickable(true)
 	column.SetVisible(true)
 
-	log.Printf("createCheckboxColumn: title=%v, columnID=%v", title, columnID)
-
 	return column, nil
 }
 
