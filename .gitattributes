@@ -1,0 +1,5 @@
+docs/app-results.png filter=lfs diff=lfs merge=lfs -text
+docs/app-config.png filter=lfs diff=lfs merge=lfs -text
+docs/app-metrics.png filter=lfs diff=lfs merge=lfs -text
+assets/icon-256.png filter=lfs diff=lfs merge=lfs -text
+assets/icon-128.png filter=lfs diff=lfs merge=lfs -text

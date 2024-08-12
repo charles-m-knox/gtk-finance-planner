@@ -4,10 +4,13 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"time"
 
-	c "finance-planner/constants"
-	"finance-planner/lib"
-	"finance-planner/state"
+	c "git.cmcode.dev/cmcode/gtk-finance-planner/constants"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/oldutil"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
+
+	lib "git.cmcode.dev/cmcode/finance-planner-lib"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -35,21 +38,23 @@ func createCheckboxColumn(title string, columnID int, radio bool, listStore *gtk
 	column.SetClickable(true)
 	column.SetVisible(true)
 
+	log.Printf("createCheckboxColumn: title=%v, columnID=%v", title, columnID)
+
 	return column, nil
 }
 
 func ProcessInitialConfigLoad(win *gtk.ApplicationWindow, openFileName *string, userTX *[]lib.TX) {
 	if *openFileName != "" {
 		var err error
-		*userTX, err = lib.LoadConfig(*openFileName)
+		*userTX, err = oldutil.LoadConfig(*openFileName)
 		if err != nil {
 			ConfigLoadErrorPromptFlow(win, *openFileName, userTX)
 		}
 	}
 
 	if len(*userTX) == 0 {
-		newTX := lib.GetNewTX()
-		newTX.Order = 1
+		newTX := lib.GetNewTX(time.Now())
+		// newTX.Order = 1
 		*userTX = []lib.TX{newTX}
 		EmptyConfigLoadSuccessDialog(win, *openFileName)
 	}
@@ -76,7 +81,7 @@ func ConfigLoadErrorPromptFlow(win *gtk.ApplicationWindow, openFileName string, 
 
 	resp := d.Run()
 	if resp == gtk.RESPONSE_YES {
-		err := lib.SaveConfig(openFileName, *userTX)
+		err := oldutil.SaveConfig(openFileName, *userTX)
 		if err != nil {
 			m := fmt.Sprintf(
 				"Failed to save config upon window load - will proceed with a blank config. Here's the error: %v",
@@ -104,7 +109,7 @@ func ConfigLoadErrorPromptFlow(win *gtk.ApplicationWindow, openFileName string, 
 func EmptyConfigLoadSuccessDialog(win *gtk.ApplicationWindow, openFileName string) {
 	if openFileName != "" {
 		m := fmt.Sprintf(
-			"Success! Loaded file \"%v\" successfully. The configuration was empty, so a sample recurring transaction has been added.",
+			"Success! Loaded file \"%v\" successfully. The configuration was empty, so an example recurring transaction has been added (but not saved).",
 			openFileName,
 		)
 		d := gtk.MessageDialogNew(
@@ -178,7 +183,7 @@ func GetMainWindowRootElements(application *gtk.Application) (
 // TODO: clean up logging
 func SaveOpenConf(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName *string, userTX *[]lib.TX) {
 	// write the config to the target file path
-	err := lib.SaveConfig(*openFileName, *userTX)
+	err := oldutil.SaveConfig(*openFileName, *userTX)
 	if err != nil {
 		m := fmt.Sprintf(
 			"Failed to save config to file \"%v\": %v",
@@ -225,7 +230,7 @@ func SaveConfAs(win *gtk.ApplicationWindow, header *gtk.HeaderBar, openFileName 
 			// GetFilename includes the full path and file name
 			*openFileName = dialog.FileChooser.GetFilename()
 			// write the config to the target file path
-			err := lib.SaveConfig(*openFileName, *userTX)
+			err := oldutil.SaveConfig(*openFileName, *userTX)
 			if err != nil {
 				m := fmt.Sprintf(
 					"Failed to save config to file \"%v\": %v",
@@ -276,7 +281,7 @@ func SaveResults(win *gtk.ApplicationWindow, header *gtk.HeaderBar, latestResult
 			// GetFilename includes the full path and file name
 			f := dialog.FileChooser.GetFilename()
 			// write the config to the target file path
-			err := lib.SaveResultsCSV(f, latestResults)
+			err := oldutil.SaveResultsCSV(f, latestResults)
 			if err != nil {
 				m := fmt.Sprintf(
 					"Failed to save results as CSV to file \"%v\": %v",
@@ -331,20 +336,20 @@ func CopyResults(win *gtk.ApplicationWindow, header *gtk.HeaderBar, latestResult
 // TODO: refactor dialog code
 // TODO: clean up logging
 func GetStats(win *gtk.ApplicationWindow, latestResults *[]lib.Result) {
-	stats, err := lib.GetStats(*latestResults)
-	if err != nil {
-		d := gtk.MessageDialogNew(
-			win,
-			gtk.DIALOG_MODAL,
-			gtk.MESSAGE_WARNING,
-			gtk.BUTTONS_OK,
-			err.Error(),
-		)
-		log.Println(err.Error())
-		d.Run()
-		d.Destroy()
-		return
-	}
+	stats := lib.GetStats(*latestResults)
+	// if err != nil {
+	// 	d := gtk.MessageDialogNew(
+	// 		win,
+	// 		gtk.DIALOG_MODAL,
+	// 		gtk.MESSAGE_WARNING,
+	// 		gtk.BUTTONS_OK,
+	// 		err.Error(),
+	// 	)
+	// 	log.Println(err.Error())
+	// 	d.Run()
+	// 	d.Destroy()
+	// 	return
+	// }
 	m := fmt.Sprintf("%v\n\nWould you like to copy these stats to your clipboard?", stats)
 	d := gtk.MessageDialogNew(win,
 		gtk.DIALOG_MODAL,
@@ -420,11 +425,14 @@ func SetupNotebookPages(ws *state.WinState) (*gtk.Grid, *gtk.Grid) {
 	ws.ConfigScrolledWindow = configSw
 	ws.ConfigTreeView = configTreeView
 
-	*ws.Results, err = lib.GenerateResultsFromDateStrings(
-		ws.TX,
+	now := time.Now()
+
+	*ws.Results, err = lib.GetResults(
+		*ws.TX,
+		lib.GetDateFromStrSafe(ws.StartDate, now),
+		lib.GetDateFromStrSafe(ws.EndDate, now),
 		ws.StartingBalance,
-		ws.StartDate,
-		ws.EndDate,
+		func(_ string) {},
 	)
 	if err != nil {
 		log.Fatal("failed to generate results from date strings", err.Error())

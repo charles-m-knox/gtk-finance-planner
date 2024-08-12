@@ -1,12 +1,12 @@
-module finance-planner
+module git.cmcode.dev/cmcode/gtk-finance-planner
 
-go 1.17
+go 1.22.5
 
 require (
-	// github.com/gin-gonic/gin v1.7.4
-	// gopkg.in/yaml.v2 v2.2.8 // indirect
-	github.com/gotk3/gotk3 v0.6.1
-	github.com/teambition/rrule-go v1.7.2
-	golang.org/x/text v0.3.7
-	github.com/google/uuid v1.3.0
+	git.cmcode.dev/cmcode/finance-planner-lib v0.0.0-20240812181646-5a0c4bcc8e1e
+	git.cmcode.dev/cmcode/uuid v0.0.1
+	github.com/gotk3/gotk3 v0.6.5-0.20240618185848-ff349ae13f56
+	gopkg.in/yaml.v3 v3.0.1
 )
+
+require github.com/teambition/rrule-go v1.8.2 // indirect

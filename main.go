@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/user"
 	"path/filepath"
+	"time"
 
-	c "finance-planner/constants"
-	"finance-planner/lib"
-	"finance-planner/state"
-	"finance-planner/ui"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/constants"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/ui"
+
+	lib "git.cmcode.dev/cmcode/finance-planner-lib"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
@@ -21,35 +24,39 @@ import (
 var embeddedIconFS embed.FS
 
 func main() {
-	application, err := gtk.ApplicationNew(c.GtkAppID, glib.APPLICATION_FLAGS_NONE)
+	application, err := gtk.ApplicationNew(constants.GtkAppID, glib.APPLICATION_FLAGS_NONE)
 	if err != nil {
 		log.Fatal("failed to create gtk application:", err)
 	}
 
-	currentUser := lib.GetUser()
+	currentUser, err := user.Current()
+	if err != nil {
+		log.Printf("failed to get the user's home directory: %v", err.Error())
+	}
+
 	homeDir := currentUser.HomeDir
-	defaultConfigFile := c.DefaultConfFileName
+	defaultConfigFile := constants.DefaultConfFileName
 	if homeDir != "" {
 		defaultConfigFile = filepath.FromSlash(fmt.Sprintf(
 			"%v/%v/%v",
 			homeDir,
-			c.DefaultConfFilePath,
-			c.DefaultConfFileName,
+			constants.DefaultConfFilePath,
+			constants.DefaultConfFileName,
 		))
 	}
 
-	application.Connect(c.GtkSignalActivate, func() {
+	application.Connect(constants.GtkSignalActivate, func() {
 		ws := primary(application, defaultConfigFile)
 
-		aNew := glib.SimpleActionNew(c.ActionNew, nil)
-		aNew.Connect(c.GtkSignalActivate, func() {
+		aNew := glib.SimpleActionNew(constants.ActionNew, nil)
+		aNew.Connect(constants.GtkSignalActivate, func() {
 			ws := primary(application, defaultConfigFile)
 			ws.Win.ShowAll()
 		})
 		application.AddAction(aNew)
 
-		aQuit := glib.SimpleActionNew(c.ActionQuit, nil)
-		aQuit.Connect(c.GtkSignalActivate, func() {
+		aQuit := glib.SimpleActionNew(constants.ActionQuit, nil)
+		aQuit.Connect(constants.GtkSignalActivate, func() {
 			application.Quit()
 		})
 		application.AddAction(aQuit)
@@ -69,13 +76,15 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 		ws  *state.WinState
 	)
 
+	now := time.Now()
+
 	ws = &state.WinState{
 		HideInactive:     false,
-		ConfigColumnSort: c.None,
+		ConfigColumnSort: constants.None,
 		OpenFileName:     filename,
 		StartingBalance:  50000,
-		StartDate:        lib.GetNowDateString(),
-		EndDate:          lib.GetDefaultEndDateString(),
+		StartDate:        lib.GetNowDateString(now),
+		EndDate:          lib.GetDefaultEndDateString(now),
 		SelectedConfIDs:  make(map[string]bool),
 		TX:               &[]lib.TX{},
 		Results:          &[]lib.Result{},
@@ -118,87 +127,53 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 		(*ws.ShowMessageDialog)(
 			fmt.Sprintf(
 				"%v\n\nVersion: %v",
-				c.AboutMessage,
-				c.VERSION,
+				constants.AboutMessage,
+				constants.VERSION,
 			),
 			gtk.MESSAGE_INFO,
 		)
 	}
 
-	saveConfAsFn := func() {
-		ui.SaveConfAs(ws.Win, ws.Header, &ws.OpenFileName, ws.TX)
-	}
+	saveConfAsFn := func() { ui.SaveConfAs(ws.Win, ws.Header, &ws.OpenFileName, ws.TX) }
 
-	saveOpenConfFn := func() {
-		ui.SaveOpenConf(ws.Win, ws.Header, &ws.OpenFileName, ws.TX)
-	}
+	saveOpenConfFn := func() { ui.SaveOpenConf(ws.Win, ws.Header, &ws.OpenFileName, ws.TX) }
 
-	saveResultsFn := func() {
-		ui.SaveResults(ws.Win, ws.Header, ws.Results)
-	}
+	saveResultsFn := func() { ui.SaveResults(ws.Win, ws.Header, ws.Results) }
 
-	copyResultsFn := func() {
-		ui.CopyResults(ws.Win, ws.Header, ws.Results)
-	}
+	copyResultsFn := func() { ui.CopyResults(ws.Win, ws.Header, ws.Results) }
 
-	delConfItemHandler := func() {
-		ui.DelConfItem(ws)
-	}
+	delConfItemHandler := func() { ui.DelConfItem(ws) }
 
-	addConfItemHandler := func() {
-		ui.AddConfItem(ws)
-	}
+	addConfItemHandler := func() { ui.AddConfItem(ws) }
 
-	cloneConfItemHandler := func() {
-		ui.CloneConfItem(ws)
-	}
+	cloneConfItemHandler := func() { ui.CloneConfItem(ws) }
 
-	loadConfCurrentWindowFn := func() {
-		ui.LoadConfig(ws, primary, false)
-	}
-	loadConfNewWindowFn := func() {
-		ui.LoadConfig(ws, primary, true)
-	}
+	loadConfCurrentWindowFn := func() { ui.LoadConfig(ws, primary, false) }
+	loadConfNewWindowFn := func() { ui.LoadConfig(ws, primary, true) }
 
-	quitApp := func() {
-		application.Quit()
-	}
+	quitApp := func() { application.Quit() }
 
 	closeWindow := func() {
 		ws.Win.Close()
 		ws.Win.Destroy()
 	}
 
-	setTabToConfig := func() {
-		ws.Notebook.SetCurrentPage(c.TAB_CONFIG)
-	}
+	setTabToConfig := func() { ws.Notebook.SetCurrentPage(constants.TAB_CONFIG) }
 
-	setTabToResults := func() {
-		ws.Notebook.SetCurrentPage(c.TAB_RESULTS)
-	}
+	setTabToResults := func() { ws.Notebook.SetCurrentPage(constants.TAB_RESULTS) }
 
-	nextTab := func() {
-		ws.Notebook.NextPage()
-	}
-	prevTab := func() {
-		ws.Notebook.PrevPage()
-	}
+	nextTab := func() { ws.Notebook.NextPage() }
+	prevTab := func() { ws.Notebook.PrevPage() }
 
 	newWindow := func() {
 		primary(application, "").Win.ShowAll()
 	}
 
-	getStats := func() {
-		ui.GetStats(ws.Win, ws.Results)
-	}
+	getStats := func() { ui.GetStats(ws.Win, ws.Results) }
 
-	updateResultsDefault := func() {
-		ui.UpdateResults(ws, true)
-	}
+	updateResultsDefault := func() { ui.UpdateResults(ws, true) }
 
-	updateResultsSilent := func() {
-		ui.UpdateResults(ws, false)
-	}
+	updateResultsSilent := func() { ui.UpdateResults(ws, false) }
 
 	// instantiation of graphical components begins next
 
@@ -214,8 +189,8 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	cfgGrid, resultsGrid := ui.SetupNotebookPages(ws)
 	ui.SetWinIcon(ws, embeddedIconFS)
 
-	ws.Win.SetTitle(c.FinancialPlanner)
-	ws.Header.SetTitle(c.FinancialPlanner)
+	ws.Win.SetTitle(constants.FinancialPlanner)
+	ws.Header.SetTitle(constants.FinancialPlanner)
 	ws.Header.SetSubtitle(ws.OpenFileName)
 	ws.Header.SetShowCloseButton(true)
 	mbtn.SetMenuModel(&menu.MenuModel)
@@ -228,15 +203,15 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	// is to connect signals, functions, and accelerators
 
 	// actions (triggered via menus or accelerators)
-	closeWinAction := glib.SimpleActionNew(c.ActionClose, nil)
-	saveConfAsAction := glib.SimpleActionNew(c.ActionSaveConfig, nil)
-	saveOpenConfAction := glib.SimpleActionNew(c.ActionSaveOpenConfig, nil)
-	saveResultsAction := glib.SimpleActionNew(c.ActionSaveResults, nil)
-	copyResultsAction := glib.SimpleActionNew(c.ActionCopyResults, nil)
-	loadConfCurrentWindowAction := glib.SimpleActionNew(c.ActionLoadConfigCurrentWindow, nil)
-	loadConfNewWindowAction := glib.SimpleActionNew(c.ActionLoadConfigNewWindow, nil)
-	getStatsWindowAction := glib.SimpleActionNew(c.ActionGetStats, nil)
-	showAboutDialogAction := glib.SimpleActionNew(c.ActionAbout, nil)
+	closeWinAction := glib.SimpleActionNew(constants.ActionClose, nil)
+	saveConfAsAction := glib.SimpleActionNew(constants.ActionSaveConfig, nil)
+	saveOpenConfAction := glib.SimpleActionNew(constants.ActionSaveOpenConfig, nil)
+	saveResultsAction := glib.SimpleActionNew(constants.ActionSaveResults, nil)
+	copyResultsAction := glib.SimpleActionNew(constants.ActionCopyResults, nil)
+	loadConfCurrentWindowAction := glib.SimpleActionNew(constants.ActionLoadConfigCurrentWindow, nil)
+	loadConfNewWindowAction := glib.SimpleActionNew(constants.ActionLoadConfigNewWindow, nil)
+	getStatsWindowAction := glib.SimpleActionNew(constants.ActionGetStats, nil)
+	showAboutDialogAction := glib.SimpleActionNew(constants.ActionAbout, nil)
 
 	// create and insert custom action group with prefix "fin" (for finances)
 	finActionGroup := glib.SimpleActionGroupNew()
@@ -258,20 +233,20 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	ws.Win.AddAction(loadConfCurrentWindowAction)
 	ws.Win.AddAction(loadConfNewWindowAction)
 
-	closeWinAction.Connect(c.GtkSignalActivate, closeWindow)
-	saveConfAsAction.Connect(c.GtkSignalActivate, saveConfAsFn)
-	saveOpenConfAction.Connect(c.GtkSignalActivate, saveOpenConfFn)
-	saveResultsAction.Connect(c.GtkSignalActivate, saveResultsFn)
-	copyResultsAction.Connect(c.GtkSignalActivate, copyResultsFn)
-	loadConfCurrentWindowAction.Connect(c.GtkSignalActivate, loadConfCurrentWindowFn)
-	loadConfNewWindowAction.Connect(c.GtkSignalActivate, loadConfNewWindowFn)
-	getStatsWindowAction.Connect(c.GtkSignalActivate, getStats)
-	showAboutDialogAction.Connect(c.GtkSignalActivate, showAboutDialog)
+	closeWinAction.Connect(constants.GtkSignalActivate, closeWindow)
+	saveConfAsAction.Connect(constants.GtkSignalActivate, saveConfAsFn)
+	saveOpenConfAction.Connect(constants.GtkSignalActivate, saveOpenConfFn)
+	saveResultsAction.Connect(constants.GtkSignalActivate, saveResultsFn)
+	copyResultsAction.Connect(constants.GtkSignalActivate, copyResultsFn)
+	loadConfCurrentWindowAction.Connect(constants.GtkSignalActivate, loadConfCurrentWindowFn)
+	loadConfNewWindowAction.Connect(constants.GtkSignalActivate, loadConfNewWindowFn)
+	getStatsWindowAction.Connect(constants.GtkSignalActivate, getStats)
+	showAboutDialogAction.Connect(constants.GtkSignalActivate, showAboutDialog)
 
 	// buttons
-	addConfItemBtn.Connect(c.GtkSignalClicked, addConfItemHandler)
-	delConfItemBtn.Connect(c.GtkSignalClicked, delConfItemHandler)
-	cloneConfItemBtn.Connect(c.GtkSignalClicked, cloneConfItemHandler)
+	addConfItemBtn.Connect(constants.GtkSignalClicked, addConfItemHandler)
+	delConfItemBtn.Connect(constants.GtkSignalClicked, delConfItemHandler)
+	cloneConfItemBtn.Connect(constants.GtkSignalClicked, cloneConfItemHandler)
 
 	accelerators, _ := gtk.AccelGroupNew()
 	keyQ, modCtrl := gtk.AcceleratorParse("<Control>q")
@@ -315,16 +290,16 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	// everything has been connected up and instantiated - now we can proceed
 	// to attach components to a grid and render them
 
-	cfgGrid.Attach(hideInactiveCheckbox, 0, c.ScrolledWindowGridHeight, c.HalfGridWidth, c.ControlsGridHeight)
-	cfgGrid.Attach(addConfItemBtn, 0, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
-	cfgGrid.Attach(delConfItemBtn, 1, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
-	cfgGrid.Attach(cloneConfItemBtn, 0, c.ScrolledWindowGridHeight+2, c.FullGridWidth, c.ControlsGridHeight)
+	cfgGrid.Attach(hideInactiveCheckbox, 0, constants.ScrolledWindowGridHeight, constants.HalfGridWidth, constants.ControlsGridHeight)
+	cfgGrid.Attach(addConfItemBtn, 0, constants.ScrolledWindowGridHeight+1, constants.HalfGridWidth, constants.ControlsGridHeight)
+	cfgGrid.Attach(delConfItemBtn, 1, constants.ScrolledWindowGridHeight+1, constants.HalfGridWidth, constants.ControlsGridHeight)
+	cfgGrid.Attach(cloneConfItemBtn, 0, constants.ScrolledWindowGridHeight+2, constants.FullGridWidth, constants.ControlsGridHeight)
 
-	resultsGrid.Attach(startingBalanceInput, 0, c.ScrolledWindowGridHeight, c.FullGridWidth, c.ControlsGridHeight)
-	resultsGrid.Attach(stDateInput, 0, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
-	resultsGrid.Attach(endDateInput, 1, c.ScrolledWindowGridHeight+1, c.HalfGridWidth, c.ControlsGridHeight)
+	resultsGrid.Attach(startingBalanceInput, 0, constants.ScrolledWindowGridHeight, constants.FullGridWidth, constants.ControlsGridHeight)
+	resultsGrid.Attach(stDateInput, 0, constants.ScrolledWindowGridHeight+1, constants.HalfGridWidth, constants.ControlsGridHeight)
+	resultsGrid.Attach(endDateInput, 1, constants.ScrolledWindowGridHeight+1, constants.HalfGridWidth, constants.ControlsGridHeight)
 
-	grid.Attach(ws.Notebook, 0, 0, c.FullGridWidth, c.ScrolledWindowGridHeight)
+	grid.Attach(ws.Notebook, 0, 0, constants.FullGridWidth, constants.ScrolledWindowGridHeight)
 
 	ws.Header.PackStart(mbtn)
 	rootBox.PackStart(grid, true, true, 0)

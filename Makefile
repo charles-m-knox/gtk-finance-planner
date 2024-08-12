@@ -1,45 +1,73 @@
-ASSETS_PATH=./assets
+.PHONY=build
 
-BIN_SOURCE_PATH=.
-BIN_SOURCE_FILE=finance-planner
+BUILDDIR=build
+VER=0.1.0
+FILE=gtk-finance-planner
+BIN=$(BUILDDIR)/$(FILE)-v$(VER)
+OUT_BIN_DIR=~/.local/bin
+UNAME=$(shell go env GOOS)
+ARCH=$(shell go env GOARCH)
+BUILD_ENV=CGO_ENABLED=1
+BUILD_FLAGS=-ldflags="-w -s -buildid= -X constants.VERSION=$(VER)" -trimpath
 
-BIN_TARGET_PATH=${HOME}/.local/bin/
-BIN_TARGET_FILE=finance-planner
+build-dev:
+	$(BUILD_ENV) go build -v
 
-DESKTOP_SOURCE_PATH=${ASSETS_PATH}
-DESKTOP_SOURCE_FILE=Finance Planner.desktop
+mkbuilddir:
+	mkdir -p $(BUILDDIR)
 
-DESKTOP_TARGET_PATH=${HOME}/.local/share/applications
-DESKTOP_TARGET_FILE=Finance Planner.desktop
+build-prod: mkbuilddir
+	make build-$(UNAME)-$(ARCH)
 
-ICON_SOURCE_PATH=${ASSETS_PATH}
-ICON_SOURCE_FILE=icon-256.png
+test:
+	go test -test.v -coverprofile=testcov.out ./... && \
+	go tool cover -html=testcov.out
 
-ICON_TARGET_PATH=${HOME}/.local/share/icons/hicolor/256x256/apps/
-ICON_TARGET_FILE=finance-planner-256.png
+run:
+	./$(BIN)
 
-build:
-	go get -v
-	go build -v
-	echo "Done building. Suggest running 'make install' to create a desktop application entry."
-
-build-arm:
-	go get -v
-	GOOS=linux GOARCH=arm64 go build -o finance-planner_arm64 -v
+lint:
+	golangci-lint run ./...
 
 install:
-	echo "If this fails, then you need to run 'make build' first." && test -f "${BIN_SOURCE_PATH}/${BIN_SOURCE_FILE}" || exit 1
-	mkdir -p "${BIN_TARGET_PATH}"
-	mkdir -p "${DESKTOP_TARGET_PATH}"
-	mkdir -p "${ICON_TARGET_PATH}"
-	cp "${BIN_SOURCE_FILE}" "${BIN_TARGET_PATH}/${BIN_TARGET_FILE}"
-	cp "${DESKTOP_SOURCE_PATH}/${DESKTOP_SOURCE_FILE}" "${DESKTOP_TARGET_PATH}/${DESKTOP_TARGET_FILE}"
-	cp "${ICON_SOURCE_PATH}/${ICON_SOURCE_FILE}" "${ICON_TARGET_PATH}/${ICON_TARGET_FILE}"
-	sed -i "s|@@HOME@@|${HOME}|g" "${DESKTOP_TARGET_PATH}/${DESKTOP_TARGET_FILE}"
-	echo "Done installing. Please make sure your PATH variable contains ~/.local/bin"
+	rsync -avP ./$(BIN)-$(UNAME)-$(ARCH) $(OUT_BIN_DIR)/$(FILE)
+	chmod +x $(OUT_BIN_DIR)/$(FILE)
 
-uninstall:
-	-rm "${DESKTOP_TARGET_PATH}/${DESKTOP_TARGET_FILE}"
-	-rm "${ICON_TARGET_PATH}/${ICON_TARGET_FILE}"
-	-rm "${BIN_TARGET_PATH}"
-	echo "Done uninstalling."
+compress-prod: mkbuilddir
+	rm -f $(BIN)-compressed
+	upx --best -o ./$(BIN)-compressed $(BIN)
+
+build-darwin-arm64: mkbuilddir
+	$(BUILD_ENV) GOARCH=arm64 GOOS=darwin go build -v -o $(BIN)-darwin-arm64 $(BUILD_FLAGS)
+	rm -f $(BIN)-darwin-arm64.xz
+	xz -9 -e -T 12 -vv $(BIN)-darwin-arm64
+
+build-darwin-amd64: mkbuilddir
+	$(BUILD_ENV) GOARCH=amd64 GOOS=darwin go build -v -o $(BIN)-darwin-amd64 $(BUILD_FLAGS)
+	rm -f $(BIN)-darwin-amd64.xz
+	xz -9 -e -T 12 -vv $(BIN)-darwin-amd64
+
+build-win-amd64: mkbuilddir
+	$(BUILD_ENV) GOARCH=amd64 GOOS=windows go build -v -o $(BIN)-win-amd64-uncompressed $(BUILD_FLAGS)
+	rm -f $(BIN)-win-amd64
+	upx --best -o ./$(BIN)-win-amd64 $(BIN)-win-amd64-uncompressed
+
+build-linux-arm64: mkbuilddir
+	$(BUILD_ENV) GOARCH=arm64 GOOS=linux go build -v -o $(BIN)-linux-arm64-uncompressed $(BUILD_FLAGS)
+	rm -f $(BIN)-linux-arm64
+	upx --best -o ./$(BIN)-linux-arm64 $(BIN)-linux-arm64-uncompressed
+
+build-linux-amd64: mkbuilddir
+	$(BUILD_ENV) GOARCH=amd64 GOOS=linux go build -v -o $(BIN)-linux-amd64-uncompressed $(BUILD_FLAGS)
+	rm -f $(BIN)-linux-amd64
+	upx --best -o ./$(BIN)-linux-amd64 $(BIN)-linux-amd64-uncompressed
+
+# as of 2024-08-02, building for arm64 doesn't seem to work.
+# build-all: mkbuilddir build-linux-amd64 build-linux-arm64 build-win-amd64 build-mac-amd64 build-mac-arm64
+build-all: mkbuilddir build-linux-amd64 build-win-amd64 build-mac-amd64 build-mac-arm64
+
+delete-uncompressed:
+	rm $(BUILDDIR)/*-uncompressed
+
+delete-builds:
+	rm $(BUILDDIR)/*

@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 
-	c "finance-planner/constants"
-	"finance-planner/lib"
-	"finance-planner/state"
+	c "git.cmcode.dev/cmcode/gtk-finance-planner/constants"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
+
+	lib "git.cmcode.dev/cmcode/finance-planner-lib"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -67,7 +68,7 @@ func addRow(listStore *gtk.ListStore, result *lib.Result) error {
 	iter := listStore.Append()
 
 	rowData := []interface{}{
-		lib.FormatAsDate(result.Date),
+		lib.GetNowDateString(result.Date),
 		lib.FormatAsCurrency(result.Balance),              // lib.CurrencyMarkup(result.Balance),
 		lib.FormatAsCurrency(result.CumulativeIncome),     // lib.CurrencyMarkup(result.CumulativeIncome),
 		lib.FormatAsCurrency(result.CumulativeExpenses),   // lib.CurrencyMarkup(result.CumulativeExpenses),

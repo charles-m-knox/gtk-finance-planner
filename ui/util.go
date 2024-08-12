@@ -3,10 +3,11 @@ package ui
 import (
 	"fmt"
 	"log"
+	"time"
 
-	c "finance-planner/constants"
-	"finance-planner/lib"
-	"finance-planner/state"
+	lib "git.cmcode.dev/cmcode/finance-planner-lib"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/constants"
+	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
 
 	"github.com/gotk3/gotk3/gtk"
 )
@@ -33,28 +34,28 @@ func createColumn(title string, id int) (tvc *gtk.TreeViewColumn, err error) {
 // Might be nice to implement this with Go generics, but for now, one has to
 // exist for each gtk widget type.
 func SetSpacerMarginsGtkEntry(entry *gtk.Entry) {
-	entry.SetMarginTop(c.UISpacer)
-	entry.SetMarginBottom(c.UISpacer)
-	entry.SetMarginStart(c.UISpacer)
-	entry.SetMarginEnd(c.UISpacer)
+	entry.SetMarginTop(constants.UISpacer)
+	entry.SetMarginBottom(constants.UISpacer)
+	entry.SetMarginStart(constants.UISpacer)
+	entry.SetMarginEnd(constants.UISpacer)
 }
 
 // SetSpacerMarginsGtkCheckBtn sets the standard spacer for all 4 different
 // margin dimensions.
 func SetSpacerMarginsGtkCheckBtn(chk *gtk.CheckButton) {
-	chk.SetMarginTop(c.UISpacer)
-	chk.SetMarginBottom(c.UISpacer)
-	chk.SetMarginStart(c.UISpacer)
-	chk.SetMarginEnd(c.UISpacer)
+	chk.SetMarginTop(constants.UISpacer)
+	chk.SetMarginBottom(constants.UISpacer)
+	chk.SetMarginStart(constants.UISpacer)
+	chk.SetMarginEnd(constants.UISpacer)
 }
 
 // SetSpacerMarginsGtkCheckBtn sets the standard spacer for all 4 different
 // margin dimensions.
 func SetSpacerMarginsGtkBtn(btn *gtk.Button) {
-	btn.SetMarginTop(c.UISpacer)
-	btn.SetMarginBottom(c.UISpacer)
-	btn.SetMarginStart(c.UISpacer)
-	btn.SetMarginEnd(c.UISpacer)
+	btn.SetMarginTop(constants.UISpacer)
+	btn.SetMarginBottom(constants.UISpacer)
+	btn.SetMarginStart(constants.UISpacer)
+	btn.SetMarginEnd(constants.UISpacer)
 }
 
 // UpdateResults gets called whenever a change is made in the config and it
@@ -62,11 +63,15 @@ func SetSpacerMarginsGtkBtn(btn *gtk.Button) {
 // shown tab.
 func UpdateResults(ws *state.WinState, switchTo bool) {
 	var err error
-	*ws.Results, err = lib.GenerateResultsFromDateStrings(
-		ws.TX,
+
+	now := time.Now()
+
+	*ws.Results, err = lib.GetResults(
+		*ws.TX,
+		lib.GetDateFromStrSafe(ws.StartDate, now),
+		lib.GetDateFromStrSafe(ws.EndDate, now),
 		ws.StartingBalance,
-		ws.StartDate,
-		ws.EndDate,
+		func(_ string) {},
 	)
 	if err != nil {
 		log.Fatal("failed to generate results from date strings", err.Error())
@@ -81,7 +86,7 @@ func UpdateResults(ws *state.WinState, switchTo bool) {
 		}
 		ws.Win.ShowAll()
 		if switchTo {
-			ws.Notebook.SetCurrentPage(c.TAB_RESULTS)
+			ws.Notebook.SetCurrentPage(constants.TAB_RESULTS)
 		}
 	}
 }

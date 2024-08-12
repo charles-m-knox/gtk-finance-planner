@@ -2,16 +2,14 @@ package constants
 
 import (
 	"path/filepath"
-
-	"github.com/gotk3/gotk3/glib"
 )
 
 var DefaultConfFilePath = filepath.FromSlash(".config/finance-planner")
 
 const (
 	// Warning: do not change this line; the makefile/build script relies on it
-	VERSION      = "0.0.4"
-	AboutMessage = "Finance Planner\n\nA way to manage recurring transactions.\n\nSource code: https://gitea.cmcode.dev/cmcode/gtk-finance-planner"
+	VERSION      = "0.1.0"
+	AboutMessage = "Finance Planner\n\nA way to manage recurring transactions.\n\nSource code: https://git.cmcode.dev/cmcode/gtk-finance-planner"
 
 	Day     = "Day"
 	Weekly  = "Weekly"
@@ -165,7 +163,8 @@ var ResultsColumnsIndexes = []int{
 // values for the config page
 
 const (
-	ColumnOrder     = "Order"
+	// ColumnOrder     = "Order"
+
 	ColumnAmount    = "Amount"    // int in cents; 500 = $5.00
 	ColumnActive    = "Active"    // bool true/false
 	ColumnName      = "Name"      // editable string
@@ -195,7 +194,7 @@ const (
 )
 
 var ConfigColumns = []string{
-	ColumnOrder,     // int
+	// ColumnOrder,     // int
 	ColumnAmount,    // int in cents; 500 = $5.00
 	ColumnActive,    // bool true/false
 	ColumnName,      // editable string
@@ -237,8 +236,8 @@ const (
 )
 
 const (
-	COLUMN_ORDER     = iota // int
-	COLUMN_AMOUNT           // int in cents; 500 = $5.00
+	// COLUMN_ORDER     = iota // int
+	COLUMN_AMOUNT    = iota // int in cents; 500 = $5.00
 	COLUMN_ACTIVE           // bool true/false
 	COLUMN_NAME             // editable string
 	COLUMN_FREQUENCY        // dropdown, monthly/daily/weekly/yearly
@@ -257,28 +256,6 @@ const (
 	COLUMN_CREATEDAT        // non-editable strings
 	COLUMN_UPDATEDAT        // non-editable strings
 )
-
-var ConfigColumnTypes = []glib.Type{
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_BOOLEAN,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-	glib.TYPE_STRING,
-}
 
 const (
 	None = "none"

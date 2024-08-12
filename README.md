@@ -16,18 +16,18 @@ That's what this application is for. Finance Planner allows you to enter everyth
 
 This application requires GTK3.
 
-You can download the application from [the releases page here](https://gitea.cmcode.dev/cmcode/gtk-finance-planner/releases), or build it yourself below. Binaries for other platforms, as well as possibly AppImages/Flatpak may be available in the future, but we'll see if I have time for that.
+You can download the application from [the releases page here](https://git.cmcode.dev/cmcode/gtk-finance-planner/releases), or build it yourself below. Binaries for other platforms, as well as possibly AppImages/Flatpak may be available in the future, but we'll see if I have time for that.
 
 If you'd like a formal application that registers as a desktop application with an icon, then do the following:
 
 ```bash
-git clone --depth=1 https://gitea.cmcode.dev/cmcode/gtk-finance-planner.git
+git clone --depth=1 https://git.cmcode.dev/cmcode/gtk-finance-planner.git
 cd gtk-finance-planner
 # download the finance-planner binary from here:
-# https://gitea.cmcode.dev/cmcode/gtk-finance-planner/releases
+# https://git.cmcode.dev/cmcode/gtk-finance-planner/releases
 # and place the file in the current directory,
 # with the name finance-planner
-wget -O finance-planner https://gitea.cmcode.dev/attachments/74152f1c-f483-4579-a7bd-f426f73eee5b # 0.0.1 linux release
+wget -O finance-planner https://git.cmcode.dev/attachments/74152f1c-f483-4579-a7bd-f426f73eee5b # 0.0.1 linux release
 make install
 ```
 
@@ -42,7 +42,7 @@ make uninstall
 This application is compiled for Linux only, currently, and requires Go if you'd like to build it:
 
 ```bash
-git clone https://gitea.cmcode.dev/cmcode/gtk-finance-planner.git
+git clone https://git.cmcode.dev/cmcode/gtk-finance-planner.git
 cd gtk-finance-planner
 go get -v # this will take a little while
 go build -v
@@ -74,10 +74,10 @@ Here's a fairly comprehensive guide on how to use this application:
    2. `Ctrl+Shift+S` - Save as. You'll need to do this if it's your first time saving to a new file.
    3. `Ctrl+S` - Save.
    4. `Ctrl+O` - Open.
-   4. `Ctrl+Shift+O` - Open in a new window.
-   4. `Ctrl+N` or `Ctrl+Shift+N` - Create a new config in a new window.
-   5. `Ctrl+W` - Close the current window.
-   6. `Ctrl+Q` - Quit the application.
+   5. `Ctrl+Shift+O` - Open in a new window.
+   6. `Ctrl+N` or `Ctrl+Shift+N` - Create a new config in a new window.
+   7. `Ctrl+W` - Close the current window.
+   8. `Ctrl+Q` - Quit the application.
 
 ## Quirks/Limitations/Bugs
 
@@ -99,7 +99,7 @@ This application is **extremely** unpolished. I do not view it as a good represe
 
 Attempts were made to build this as an AppImage, but it didn't go smoothly, so I'll add it as a future milestone.
 
-Follow the instructions here for packaging as an AppImage: https://appimage-builder.readthedocs.io/en/latest/intro/install.html
+Follow the instructions here for packaging as an AppImage: <https://appimage-builder.readthedocs.io/en/latest/intro/install.html>
 
 (First time only, or when re-setting up the AppImage builder) Then, from the root of this repository, run:
 
@@ -114,4 +114,4 @@ I've been developing different versions of this application for years, off and o
 
 ## Attributions
 
-The app's icon is modified from Font Awesome, license here: https://fontawesome.com/license
+The app's icon is modified from Font Awesome, license here: <https://fontawesome.com/license>
