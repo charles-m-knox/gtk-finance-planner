@@ -1,0 +1,29 @@
+{
+    "$schema": "https://raw.githubusercontent.com/flatpak/flatpak-builder/main/data/flatpak-manifest.schema.json",
+    "id": "dev.cmcode.gtk-finance-planner",
+    "runtime": "org.freedesktop.Platform",
+    "runtime-version": "23.08",
+    "sdk": "org.freedesktop.Sdk",
+    "command": "gtk-finance-planner",
+    "finish-args": [
+      "--socket=fallback-x11",
+      "--socket=wayland",
+      "--device=dri"
+    ],
+    "modules": [
+      {
+        "name": "download-build",
+        "buildsystem": "simple",
+        "build-commands": [],
+        "post-install": ["mkdir -p /app/bin && chmod +x gtk-finance-planner && echo $PATH && mv gtk-finance-planner /app/bin/gtk-finance-planner"],
+        "sources": [
+          {
+            "type": "file",
+            "url": "https://git.cmcode.dev/cmcode/gtk-finance-planner/releases/download/v0.1.0/gtk-finance-planner-v0.1.0-linux-amd64",
+            "sha256": "e82a7ad4849a4214ec02ecf0ded5c864bc1e32ae87e62a9a0f12842fc7236b4d",
+            "dest-filename": "gtk-finance-planner"
+          }
+        ]
+      }
+    ]
+}

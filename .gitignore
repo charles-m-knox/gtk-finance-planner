@@ -22,3 +22,4 @@ releases/
 old/
 gtk-finance-planner
 build/
+.flatpak-builder

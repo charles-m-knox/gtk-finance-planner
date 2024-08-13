@@ -1,6 +1,7 @@
 .PHONY=build
 
 BUILDDIR=build
+FLATPAK_BUILD_DIR=$(BUILDDIR)/flatpak
 VER=0.1.0
 FILE=gtk-finance-planner
 BIN=$(BUILDDIR)/$(FILE)-v$(VER)
@@ -71,3 +72,10 @@ delete-uncompressed:
 
 delete-builds:
 	rm $(BUILDDIR)/*
+
+flatpak-build:
+	rm -rf $(FLATPAK_BUILD_DIR)
+	mkdir -p $(FLATPAK_BUILD_DIR)
+	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
+	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
+	flatpak-builder --user --install $(FLATPAK_BUILD_DIR) dev.cmcode.gtk-finance-planner.json
