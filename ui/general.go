@@ -107,7 +107,7 @@ func ConfigLoadErrorPromptFlow(win *gtk.ApplicationWindow, openFileName string, 
 func EmptyConfigLoadSuccessDialog(win *gtk.ApplicationWindow, openFileName string) {
 	if openFileName != "" {
 		m := fmt.Sprintf(
-			"Success! Loaded file \"%v\" successfully. The configuration was empty, so an example recurring transaction has been added (but not saved).",
+			"The configuration was empty. Next file save will write to %v.",
 			openFileName,
 		)
 		d := gtk.MessageDialogNew(

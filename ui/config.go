@@ -464,7 +464,7 @@ func SetConfigSortColumn(ws *state.WinState, column int) {
 // be parsed into currency and displayed as currency as well
 func getAmountColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	amtCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	amtCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_AMOUNT, newText)
@@ -532,7 +532,7 @@ func getActiveColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // allows users to set the name of a recurring transaction
 func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	nameCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	nameCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_NAME, newText)
@@ -570,7 +570,7 @@ func getNameColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // users to just simply type "MONTHLY"/"YEARLY"/"WEEKLY"
 func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	freqCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	freqCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_FREQUENCY, newText)
@@ -614,7 +614,7 @@ func getFrequencyColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error)
 // for more unit testability
 func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	intervalCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	intervalCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_INTERVAL, newText)
@@ -651,7 +651,7 @@ func getIntervalColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) 
 // TODO: refactoring and cleanup
 func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	startsCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	startsCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_STARTS, newText)
@@ -688,7 +688,7 @@ func getStartsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 // TODO: refactoring and cleanup
 func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	endsCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	endsCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_ENDS, newText)
@@ -727,7 +727,7 @@ func getEndsColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 func getNotesColumn(ws *state.WinState) (tvc *gtk.TreeViewColumn, err error) {
 	// notes column
 	notesCellEditingStarted := func(a *gtk.CellRendererText, e *gtk.CellEditable, path string) {
-		log.Println(constants.GtkSignalEditingStart, a, path)
+		// log.Println(constants.GtkSignalEditingStart, a, path)
 	}
 	notesCellEditingFinished := func(a *gtk.CellRendererText, path string, newText string) {
 		ConfigChange(ws, path, constants.COLUMN_NOTE, newText)

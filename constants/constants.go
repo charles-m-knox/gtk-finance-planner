@@ -1,15 +1,14 @@
 package constants
 
-import (
-	"path/filepath"
-)
-
-var DefaultConfFilePath = filepath.FromSlash(".config/finance-planner")
+// var DefaultConfFilePath = filepath.FromSlash(".config/finance-planner")
 
 const (
-	// Warning: do not change this line; the makefile/build script relies on it
-	VERSION      = "0.1.0"
+	// Warning: do not remove this line; the makefile/build script relies on it
+	VERSION      = "0.1.1"
 	AboutMessage = "Finance Planner\n\nA way to manage recurring transactions.\n\nSource code: https://git.cmcode.dev/cmcode/gtk-finance-planner"
+
+	APP_CONF_DIR      = "finance-planner"
+	APP_CONF_FILENAME = "conf.json"
 
 	Day     = "Day"
 	Weekly  = "Weekly"
@@ -29,8 +28,6 @@ const (
 	FinancialPlanner = "Financial Planner"
 
 	UISpacer = 10 // allows consistent spacing between all elements
-
-	DefaultConfFileName = "conf.json"
 
 	// TODO: get a proper reverse fqdn for this eventually
 	GtkAppID = "dev.cmcode.gtk-finance-planner"

@@ -1,10 +1,10 @@
 [Desktop Entry]
+Name=Finance Planner
 Encoding=UTF-8
 Type=Application
 NoDisplay=false
 Terminal=false
-Exec=@@HOME@@/.local/bin/finance-planner
-Icon=@@HOME@@/.local/share/icons/hicolor/256x256/apps/finance-planner-256.png
-Name=Finance Planner
+Exec=gtk-finance-planner
+Icon=dev.cmcode.gtk-finance-planner
 Comment=Tracks monthly subscriptions, bills, and other things.
 Categories=

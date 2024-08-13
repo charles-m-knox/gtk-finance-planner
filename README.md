@@ -14,27 +14,18 @@ That's what this application is for. Finance Planner allows you to enter everyth
 
 ## Getting started
 
-This application requires GTK3.
-
-You can download the application from [the releases page here](https://git.cmcode.dev/cmcode/gtk-finance-planner/releases), or build it yourself below. Binaries for other platforms, as well as possibly AppImages/Flatpak may be available in the future, but we'll see if I have time for that.
-
-If you'd like a formal application that registers as a desktop application with an icon, then do the following:
+This application can be installed via Flatpak.
 
 ```bash
-git clone --depth=1 https://git.cmcode.dev/cmcode/gtk-finance-planner.git
-cd gtk-finance-planner
-# download the finance-planner binary from here:
-# https://git.cmcode.dev/cmcode/gtk-finance-planner/releases
-# and place the file in the current directory,
-# with the name finance-planner
-wget -O finance-planner https://git.cmcode.dev/attachments/74152f1c-f483-4579-a7bd-f426f73eee5b # 0.0.1 linux release
-make install
-```
+# if you do not have flathub added as a remote, please add it first, so that
+# the necessary flatpak runtimes can be acquired:
+flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-To uninstall:
+# add my custom flatpak repository next:
+flatpak --user remote-add --if-not-exists cmcode https://flatpak.cmcode.dev/cmcode.flatpakrepo
 
-```bash
-make uninstall
+# install the flatpak:
+flatpak --user install cmcode dev.cmcode.gtk-finance-planner
 ```
 
 ### Building from source
@@ -46,7 +37,7 @@ git clone https://git.cmcode.dev/cmcode/gtk-finance-planner.git
 cd gtk-finance-planner
 go get -v # this will take a little while
 go build -v
-./finance-planner
+./gtk-finance-planner
 ```
 
 ## Usage
@@ -83,9 +74,8 @@ Here's a fairly comprehensive guide on how to use this application:
 
 There are a couple minor quirks:
 
-* Currently tries to save to `/home/$USER/.config/finance-planner/config.json` by default.
 * If you receive paychecks on e.g. the last day of the month, there is currently no direct method of doing this. I typically go with setting the `Starts` column to something like `2022-01-28`, since every month of the year ends on or after the 28th day, guaranteed.
-* Sorting is currently not supported. Sorry about this - I want this feature too, but I struggled working with the TreeView's documentation.
+* Sorting is currently not supported in a pleasant manner. Sorry about this - I want this feature too, but I struggled working with the TreeView's documentation.
 * Some GTK theming issues, such as the icon when in the alt+tab interface or the application's name, have not been corrected. I'm not really sure how to do this with gotk, it's not documented in the example code from what I could see. Would like to fix this some time in the future.
 * No way to sort bills, aside from editing the JSON config file itself.
 
@@ -93,20 +83,7 @@ There are a couple minor quirks:
 
 A GTK3 desktop application written in Go, using gotk.
 
-This application is **extremely** unpolished. I do not view it as a good representation of "ideal" code. I have not refactored or enhanced the code. I wrote this application in 1 weekend. There are going to be bugs. It still works pretty well though.
-
-### Building
-
-Attempts were made to build this as an AppImage, but it didn't go smoothly, so I'll add it as a future milestone.
-
-Follow the instructions here for packaging as an AppImage: <https://appimage-builder.readthedocs.io/en/latest/intro/install.html>
-
-(First time only, or when re-setting up the AppImage builder) Then, from the root of this repository, run:
-
-```bash
-sudo appimage-builder --generate
-appimage-builder --recipe AppImageBuilder.yml
-```
+This application is **extremely** unpolished. I do not view it as a good representation of "ideal" code. I have not refactored or enhanced the code. I initially wrote this application in 1 weekend. There are going to be bugs. It still works pretty well though.
 
 ## Roadmap
 

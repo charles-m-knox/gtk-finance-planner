@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
-	"path/filepath"
+	"path"
 	"time"
 
 	"git.cmcode.dev/cmcode/gtk-finance-planner/constants"
@@ -15,6 +14,7 @@ import (
 
 	lib "git.cmcode.dev/cmcode/finance-planner-lib"
 
+	"github.com/adrg/xdg"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
@@ -29,21 +29,56 @@ func main() {
 		log.Fatal("failed to create gtk application:", err)
 	}
 
-	currentUser, err := user.Current()
+	// currentUser, err := user.Current()
+	// if err != nil {
+	// 	log.Printf("failed to get the user's home directory: %v", err.Error())
+	// }
+
+	// homeDir := currentUser.HomeDir
+	// defaultConfigFile := constants.APP
+	// if homeDir != "" {
+	// 	defaultConfigFile = filepath.FromSlash(fmt.Sprintf(
+	// 		"%v/%v/%v",
+	// 		homeDir,
+	// 		constants.DefaultConfFilePath,
+	// 		constants.DefaultConfFileName,
+	// 	))
+	// }
+
+	defaultConfigFile, err := xdg.SearchConfigFile(path.Join(constants.APP_CONF_DIR, constants.APP_CONF_FILENAME))
 	if err != nil {
-		log.Printf("failed to get the user's home directory: %v", err.Error())
+		log.Printf("failed to get xdg config dir: %v", err.Error())
 	}
 
-	homeDir := currentUser.HomeDir
-	defaultConfigFile := constants.DefaultConfFileName
-	if homeDir != "" {
-		defaultConfigFile = filepath.FromSlash(fmt.Sprintf(
-			"%v/%v/%v",
-			homeDir,
-			constants.DefaultConfFilePath,
-			constants.DefaultConfFileName,
-		))
+	if defaultConfigFile == "" {
+		if xdg.ConfigHome != "" {
+			defaultConfigFile = path.Join(xdg.ConfigHome, constants.APP_CONF_DIR, constants.APP_CONF_FILENAME)
+			log.Printf("using %v for config file path", defaultConfigFile)
+		} else {
+			log.Println("unable to automatically identify any suitable config dirs; configuration will not be saved")
+		}
 	}
+
+	// if defaultConfigFile != "" {
+	// 	bac, err := os.ReadFile(defaultConfigFile)
+	// 	if err != nil {
+	// 		log.Printf("config file not readable at %v", defaultConfigFile)
+	// 	}
+
+	// 	err = json.Unmarshal(bac, app.conf)
+	// 	if err != nil {
+	// 		log.Printf("config file %v failed to parse: %v", defaultConfigFile, err.Error())
+	// 	}
+
+	// 	log.Printf("loaded config from %v", defaultConfigFile)
+	// } else {
+	// 	if xdg.ConfigHome != "" {
+	// 		defaultConfigFile = path.Join(xdg.ConfigHome, constants.APP_CONF_DIR, constants.APP_CONF_FILENAME)
+	// 		log.Printf("using %v for config file path", defaultConfigFile)
+	// 	} else {
+	// 		log.Println("unable to automatically identify any suitable config dirs; configuration will not be saved")
+	// 	}
+	// }
 
 	application.Connect(constants.GtkSignalActivate, func() {
 		ws := primary(application, defaultConfigFile)
@@ -181,7 +216,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	ws.Win = win
 	ws.Header = header
 
-	ui.ProcessInitialConfigLoad(ws.Win, &ws.OpenFileName, ws.TX)
+	ui.ProcessInitialConfigLoad(ws.Win, &(ws.OpenFileName), ws.TX)
 
 	nb, grid := ui.GetStructuralComponents(ws)
 	ws.Notebook = nb

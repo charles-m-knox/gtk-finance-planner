@@ -2,7 +2,7 @@
 
 BUILDDIR=build
 FLATPAK_BUILD_DIR=$(BUILDDIR)/flatpak
-VER=0.1.0
+VER=0.1.1
 FILE=gtk-finance-planner
 BIN=$(BUILDDIR)/$(FILE)-v$(VER)
 OUT_BIN_DIR=~/.local/bin
@@ -10,6 +10,9 @@ UNAME=$(shell go env GOOS)
 ARCH=$(shell go env GOARCH)
 BUILD_ENV=CGO_ENABLED=1
 BUILD_FLAGS=-ldflags="-w -s -buildid= -X constants.VERSION=$(VER)" -trimpath
+GPG_SIGNING_KEY=$(shell git config --get user.signingkey)
+FLATPAK_REPOSITORY=/mnt/flatpakrepo-cmcode
+FLATPAK_MANIFEST=dev.cmcode.gtk-finance-planner.yml
 
 build-dev:
 	$(BUILD_ENV) go build -v
@@ -73,9 +76,18 @@ delete-uncompressed:
 delete-builds:
 	rm $(BUILDDIR)/*
 
-flatpak-build:
+flatpak-build-test:
+	mount --fake | grep -i $(FLATPAK_REPOSITORY)
 	rm -rf $(FLATPAK_BUILD_DIR)
 	mkdir -p $(FLATPAK_BUILD_DIR)
 	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
 	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
-	flatpak-builder --user --install $(FLATPAK_BUILD_DIR) dev.cmcode.gtk-finance-planner.json
+	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
+
+flatpak-release:
+	mount --fake | grep -i $(FLATPAK_REPOSITORY)
+	rm -rf $(FLATPAK_BUILD_DIR)
+	mkdir -p $(FLATPAK_BUILD_DIR)
+	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
+	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
+	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) --repo=$(FLATPAK_REPOSITORY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
