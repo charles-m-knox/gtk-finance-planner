@@ -1,7 +1,7 @@
 package state
 
 import (
-	lib "git.cmcode.dev/cmcode/finance-planner-lib"
+	lib "github.com/charles-m-knox/finance-planner-lib"
 
 	"github.com/gotk3/gotk3/gtk"
 )

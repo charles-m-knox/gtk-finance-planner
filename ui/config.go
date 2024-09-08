@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"git.cmcode.dev/cmcode/gtk-finance-planner/constants"
-	"git.cmcode.dev/cmcode/gtk-finance-planner/oldutil"
-	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
+	"github.com/charles-m-knox/gtk-finance-planner/constants"
+	"github.com/charles-m-knox/gtk-finance-planner/oldutil"
+	"github.com/charles-m-knox/gtk-finance-planner/state"
 
-	lib "git.cmcode.dev/cmcode/finance-planner-lib"
-	"git.cmcode.dev/cmcode/uuid"
+	lib "github.com/charles-m-knox/finance-planner-lib"
+	uuid "github.com/charles-m-knox/go-uuid"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"

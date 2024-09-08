@@ -1,8 +1,7 @@
 .PHONY=build
 
 BUILDDIR=build
-FLATPAK_BUILD_DIR=$(BUILDDIR)/flatpak
-VER=0.1.1
+VER=0.1.2
 FILE=gtk-finance-planner
 BIN=$(BUILDDIR)/$(FILE)-v$(VER)
 OUT_BIN_DIR=~/.local/bin
@@ -11,8 +10,9 @@ ARCH=$(shell go env GOARCH)
 BUILD_ENV=CGO_ENABLED=1
 BUILD_FLAGS=-ldflags="-w -s -buildid= -X constants.VERSION=$(VER)" -trimpath
 GPG_SIGNING_KEY=$(shell git config --get user.signingkey)
-FLATPAK_REPOSITORY=/mnt/flatpakrepo-cmcode
-FLATPAK_MANIFEST=dev.cmcode.gtk-finance-planner.yml
+FLATPAK_BUILD_DIR=$(BUILDDIR)/flatpak
+FLATPAK_REPOSITORY=/mnt/flatpakrepo-charlesmknox
+FLATPAK_MANIFEST=com.charlesmknox.gtk-finance-planner.yml
 
 build-dev:
 	$(BUILD_ENV) go build -v

@@ -22,10 +22,10 @@ This application can be installed via Flatpak.
 flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # add my custom flatpak repository next:
-flatpak --user remote-add --if-not-exists cmcode https://flatpak.cmcode.dev/cmcode.flatpakrepo
+flatpak --user remote-add --if-not-exists charlesmknox https://flatpak.charlesmknox.dev/charlesmknox.flatpakrepo
 
 # install the flatpak:
-flatpak --user install cmcode dev.cmcode.gtk-finance-planner
+flatpak --user install charlesmknox com.charlesmknox.gtk-finance-planner
 ```
 
 ### Building from source
@@ -33,7 +33,7 @@ flatpak --user install cmcode dev.cmcode.gtk-finance-planner
 This application is compiled for Linux only, currently, and requires Go if you'd like to build it:
 
 ```bash
-git clone https://git.cmcode.dev/cmcode/gtk-finance-planner.git
+git clone https://github.com/charles-m-knox/gtk-finance-planner.git
 cd gtk-finance-planner
 go get -v # this will take a little while
 go build -v

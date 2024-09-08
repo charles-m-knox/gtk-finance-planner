@@ -6,11 +6,11 @@ import (
 	"log"
 	"time"
 
-	c "git.cmcode.dev/cmcode/gtk-finance-planner/constants"
-	"git.cmcode.dev/cmcode/gtk-finance-planner/oldutil"
-	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
+	c "github.com/charles-m-knox/gtk-finance-planner/constants"
+	"github.com/charles-m-knox/gtk-finance-planner/oldutil"
+	"github.com/charles-m-knox/gtk-finance-planner/state"
 
-	lib "git.cmcode.dev/cmcode/finance-planner-lib"
+	lib "github.com/charles-m-knox/finance-planner-lib"
 
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"

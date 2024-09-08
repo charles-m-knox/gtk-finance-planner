@@ -5,9 +5,9 @@ import (
 	"log"
 	"time"
 
-	lib "git.cmcode.dev/cmcode/finance-planner-lib"
-	"git.cmcode.dev/cmcode/gtk-finance-planner/constants"
-	"git.cmcode.dev/cmcode/gtk-finance-planner/state"
+	lib "github.com/charles-m-knox/finance-planner-lib"
+	"github.com/charles-m-knox/gtk-finance-planner/constants"
+	"github.com/charles-m-knox/gtk-finance-planner/state"
 
 	"github.com/gotk3/gotk3/gtk"
 )

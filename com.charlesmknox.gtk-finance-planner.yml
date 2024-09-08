@@ -1,6 +1,6 @@
 ---
 # yaml-language-server: $schema=https://raw.githubusercontent.com/flatpak/flatpak-builder/main/data/flatpak-manifest.schema.json
-id: "dev.cmcode.gtk-finance-planner"
+id: "com.charlesmknox.gtk-finance-planner"
 runtime: "org.freedesktop.Platform"
 runtime-version: "23.08"
 sdk: "org.freedesktop.Sdk"
@@ -17,11 +17,11 @@ modules:
       - "mkdir -p /app/bin /app/share/icons/hicolor/scalable/apps /app/share/applications"
       - "chmod +x gtk-finance-planner"
       - "mv gtk-finance-planner /app/bin/gtk-finance-planner"
-      - "mv icon.svg /app/share/icons/hicolor/scalable/apps/dev.cmcode.gtk-finance-planner.svg"
-      - "mv app.desktop /app/share/applications/dev.cmcode.gtk-finance-planner.desktop"
+      - "mv icon.svg /app/share/icons/hicolor/scalable/apps/com.charlesmknox.gtk-finance-planner.svg"
+      - "mv app.desktop /app/share/applications/com.charlesmknox.gtk-finance-planner.desktop"
     sources:
       - type: file
-        path: build/gtk-finance-planner-v0.1.1-linux-amd64
+        path: build/gtk-finance-planner-v0.1.2-linux-amd64
         dest-filename: gtk-finance-planner
         dest: "."
       - type: file

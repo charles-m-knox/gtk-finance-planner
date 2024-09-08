@@ -5,6 +5,6 @@ Type=Application
 NoDisplay=false
 Terminal=false
 Exec=gtk-finance-planner
-Icon=dev.cmcode.gtk-finance-planner
+Icon=com.charlesmknox.gtk-finance-planner
 Comment=Tracks monthly subscriptions, bills, and other things.
 Categories=

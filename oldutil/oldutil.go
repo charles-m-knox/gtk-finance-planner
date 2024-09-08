@@ -10,9 +10,9 @@ import (
 	"path"
 	"strings"
 
-	"git.cmcode.dev/cmcode/gtk-finance-planner/constants"
+	"github.com/charles-m-knox/gtk-finance-planner/constants"
 
-	lib "git.cmcode.dev/cmcode/finance-planner-lib"
+	lib "github.com/charles-m-knox/finance-planner-lib"
 
 	"github.com/gotk3/gotk3/gtk"
 	"gopkg.in/yaml.v3"
