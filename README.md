@@ -85,10 +85,6 @@ A GTK3 desktop application written in Go, using gotk.
 
 This application is **extremely** unpolished. I do not view it as a good representation of "ideal" code. I have not refactored or enhanced the code. I initially wrote this application in 1 weekend. There are going to be bugs. It still works pretty well though.
 
-## Roadmap
-
-I've been developing different versions of this application for years, off and on. It was only recently that I decided to try making GTK version of it. The documentation for gotk3 is sparse, and examples were lacking, so unfortunately, this application is fairly rigid for the time being. I am contemplating rewriting it in the form of an Electron application.
-
 ## Attributions
 
 The app's icon is modified from Font Awesome, license here: <https://fontawesome.com/license>
