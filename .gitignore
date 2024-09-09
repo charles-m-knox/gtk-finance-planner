@@ -1,7 +1,13 @@
-.flatpak-builder
-/build/
+# compiled binaries
 /finance-planner
-/flatpakrepo
 /gtk-finance-planner
+
 /old/
+
+# build files
+/build/
 /releases/
+
+# flatpak-related files
+.flatpak-builder
+/flatpakrepo
