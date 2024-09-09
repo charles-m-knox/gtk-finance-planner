@@ -96,7 +96,7 @@ flatpak-build:
 flatpak-publish: flatpak-build
 	mv $(FLATPAK_REPO_DIR) $(FLATPAK_REPO_TMP_DIR)
 	git checkout $(FLATPAK_REPO_GIT_BRANCH)
-	rm -rf $(FLATPAK_REPO_DIR)
+	rm -rf $(FLATPAK_REPO_GHPAGES_REPO_DIR)
 	mv $(FLATPAK_REPO_TMP_DIR) $(FLATPAK_REPO_GHPAGES_REPO_DIR)
 	! git diff --quiet || exit 1
 	-git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
