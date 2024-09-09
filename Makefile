@@ -12,7 +12,13 @@ BUILD_FLAGS=-ldflags="-w -s -buildid= -X constants.VERSION=$(VER)" -trimpath
 GPG_SIGNING_KEY=$(shell git config --get user.signingkey)
 FLATPAK_BUILD_DIR=$(BUILDDIR)/flatpak
 FLATPAK_MANIFEST=com.charlesmknox.gtk-finance-planner.yml
-FLATPAK_REPO_DIR=flatpakrepo/repo
+FLATPAK_REPO_BASE_DIR=flatpakrepo
+FLATPAK_REPO_DIR=$(FLATPAK_REPO_BASE_DIR)/repo
+FLATPAK_REPO_GIT_BRANCH=flatpakrepo
+FLATPAK_REPO_GIT_ORPHAN_BRANCH=flatpakrepo-tmp
+FLATPAK_REPO_TMP_DIR=__TMP__FLATPAK__DIR__
+GIT_REMOTE=origin
+GIT_MAIN_BRANCH=main
 
 build-dev:
 	$(BUILD_ENV) go build -v
@@ -84,6 +90,22 @@ flatpak-build:
 	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
 	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
 	flatpak build-export $(FLATPAK_REPO_DIR) $(FLATPAK_BUILD_DIR)
+
+flatpak-publish: flatpak-build
+	mv $(FLATPAK_REPO_DIR) $(FLATPAK_REPO_TMP_DIR)
+	git checkout $(FLATPAK_REPO_GIT_BRANCH)
+	rm -rf $(FLATPAK_REPO_DIR)
+	mv $(FLATPAK_REPO_TMP_DIR) $(FLATPAK_REPO_DIR)
+	git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
+	git checkout -b $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
+	git add -A
+	git commit -S -m "flatpakrepo build"
+	git branch -D $(FLATPAK_REPO_GIT_BRANCH)
+	git checkout -b $(FLATPAK_REPO_GIT_BRANCH)
+	git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
+	git push -f $(GIT_REMOTE) $(FLATPAK_REPO_GIT_BRANCH)
+	git checkout $(GIT_MAIN_BRANCH)
+
 # At some point in the future, this may be desirable if there are too many files.
 #	flatpak build-update-repo --generate-static-deltas $(FLATPAK_REPO_DIR)
 
