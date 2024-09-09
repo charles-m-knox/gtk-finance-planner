@@ -11,8 +11,8 @@ BUILD_ENV=CGO_ENABLED=1
 BUILD_FLAGS=-ldflags="-w -s -buildid= -X constants.VERSION=$(VER)" -trimpath
 GPG_SIGNING_KEY=$(shell git config --get user.signingkey)
 FLATPAK_BUILD_DIR=$(BUILDDIR)/flatpak
-FLATPAK_REPOSITORY=/mnt/flatpakrepo-charlesmknox
 FLATPAK_MANIFEST=com.charlesmknox.gtk-finance-planner.yml
+FLATPAK_REPO_DIR=flatpakrepo/repo
 
 build-dev:
 	$(BUILD_ENV) go build -v
@@ -76,18 +76,26 @@ delete-uncompressed:
 delete-builds:
 	rm $(BUILDDIR)/*
 
-flatpak-build-test:
-	mount --fake | grep -i $(FLATPAK_REPOSITORY)
+# warning: this will install the flatpak locally
+flatpak-build:
 	rm -rf $(FLATPAK_BUILD_DIR)
-	mkdir -p $(FLATPAK_BUILD_DIR)
+	mkdir -p $(FLATPAK_BUILD_DIR) $(FLATPAK_REPO_DIR)
 	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
 	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
 	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
+	flatpak build-export $(FLATPAK_REPO_DIR) $(FLATPAK_BUILD_DIR)
+# At some point in the future, this may be desirable if there are too many files.
+#	flatpak build-update-repo --generate-static-deltas $(FLATPAK_REPO_DIR)
 
-flatpak-release:
-	mount --fake | grep -i $(FLATPAK_REPOSITORY)
-	rm -rf $(FLATPAK_BUILD_DIR)
-	mkdir -p $(FLATPAK_BUILD_DIR)
-	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
-	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
-	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) --repo=$(FLATPAK_REPOSITORY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
+# if this fails due to the following error:
+#
+# error: opening repo: opendir(objects): No such file or directory
+#
+# then you need to run flatpak build-export to initialize the repository once
+# flatpak-release:
+# 	mount --fake | grep -i $(FLATPAK_REPOSITORY)
+# 	rm -rf $(FLATPAK_BUILD_DIR)
+# 	mkdir -p $(FLATPAK_BUILD_DIR)
+# 	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
+# 	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
+# 	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) --repo=$(FLATPAK_REPOSITORY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
