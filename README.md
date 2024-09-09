@@ -22,10 +22,10 @@ This application can be installed via Flatpak.
 flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # add my custom flatpak repository next:
-flatpak --user remote-add --if-not-exists charlesmknox https://flatpak.charlesmknox.dev/charlesmknox.flatpakrepo
+flatpak --user remote-add --if-not-exists com.charlesmknox.gtk-finance-planner https://gtk-finance-planner.flatpaks.charlesmknox.com/app.flatpakrepo
 
 # install the flatpak:
-flatpak --user install charlesmknox com.charlesmknox.gtk-finance-planner
+flatpak --user install com.charlesmknox.gtk-finance-planner com.charlesmknox.gtk-finance-planner
 ```
 
 ### Building from source
@@ -83,7 +83,7 @@ There are a couple minor quirks:
 
 A GTK3 desktop application written in Go, using gotk.
 
-This application is **extremely** unpolished. I do not view it as a good representation of "ideal" code. I have not refactored or enhanced the code. I initially wrote this application in 1 weekend. There are going to be bugs. It still works pretty well though.
+This application is unpolished (but the underlying library providing the finance logic is unit tested and should work well). I do not view it as a good representation of "ideal" code. I have not refactored or enhanced the code. I initially wrote this application in 1 weekend. There are going to be bugs. It still works pretty well though.
 
 ## Attributions
 
