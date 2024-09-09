@@ -96,13 +96,13 @@ flatpak-publish: flatpak-build
 	git checkout $(FLATPAK_REPO_GIT_BRANCH)
 	rm -rf $(FLATPAK_REPO_DIR)
 	mv $(FLATPAK_REPO_TMP_DIR) $(FLATPAK_REPO_DIR)
-	git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
+	-git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
 	git checkout -b $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
 	git add -A
 	git commit -S -m "flatpakrepo build"
-	git branch -D $(FLATPAK_REPO_GIT_BRANCH)
+	-git branch -D $(FLATPAK_REPO_GIT_BRANCH)
 	git checkout -b $(FLATPAK_REPO_GIT_BRANCH)
-	git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
+	-git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
 	git push -f $(GIT_REMOTE) $(FLATPAK_REPO_GIT_BRANCH)
 	git checkout $(GIT_MAIN_BRANCH)
 
