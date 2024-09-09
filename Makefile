@@ -93,6 +93,8 @@ flatpak-build:
 	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
 	flatpak build-export $(FLATPAK_REPO_DIR) $(FLATPAK_BUILD_DIR)
 
+# warning: this is a dangerous operation that does a force-push and can delete
+# local files
 flatpak-publish: flatpak-build
 	mv $(FLATPAK_REPO_DIR) $(FLATPAK_REPO_TMP_DIR)
 	git checkout $(FLATPAK_REPO_GIT_BRANCH)
@@ -108,19 +110,3 @@ flatpak-publish: flatpak-build
 	-git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
 	git push -f $(GIT_REMOTE) $(FLATPAK_REPO_GIT_BRANCH)
 	git checkout $(GIT_MAIN_BRANCH)
-
-# At some point in the future, this may be desirable if there are too many files.
-#	flatpak build-update-repo --generate-static-deltas $(FLATPAK_REPO_DIR)
-
-# if this fails due to the following error:
-#
-# error: opening repo: opendir(objects): No such file or directory
-#
-# then you need to run flatpak build-export to initialize the repository once
-# flatpak-release:
-# 	mount --fake | grep -i $(FLATPAK_REPOSITORY)
-# 	rm -rf $(FLATPAK_BUILD_DIR)
-# 	mkdir -p $(FLATPAK_BUILD_DIR)
-# 	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
-# 	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
-# 	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) --repo=$(FLATPAK_REPOSITORY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
