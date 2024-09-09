@@ -86,12 +86,13 @@ delete-builds:
 
 # warning: this will install the flatpak locally
 flatpak-build:
-	rm -rf $(FLATPAK_BUILD_DIR)
+	rm -rf $(FLATPAK_BUILD_DIR) $(FLATPAK_REPO_DIR)
 	mkdir -p $(FLATPAK_BUILD_DIR) $(FLATPAK_REPO_DIR)
 	flatpak --user install runtime/org.freedesktop.Sdk/x86_64/23.08
 	flatpak --user install runtime/org.freedesktop.Platform/x86_64/23.08
 	flatpak-builder --user --install --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_BUILD_DIR) $(FLATPAK_MANIFEST)
-	flatpak build-export $(FLATPAK_REPO_DIR) $(FLATPAK_BUILD_DIR)
+	flatpak build-export --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_REPO_DIR) $(FLATPAK_BUILD_DIR)
+	flatpak build-update-repo --gpg-sign=$(GPG_SIGNING_KEY) $(FLATPAK_REPO_DIR)
 
 # warning: this is a dangerous operation that does a force-push and can delete
 # local files
