@@ -84,7 +84,9 @@ delete-uncompressed:
 delete-builds:
 	rm $(BUILDDIR)/*
 
-# warning: this will install the flatpak locally
+# warning: this will install the flatpak locally, and you might have to
+# uninstall it & remove the (local) remote if you want to actually install the
+# published flatpak
 flatpak-build:
 	rm -rf $(FLATPAK_BUILD_DIR) $(FLATPAK_REPO_DIR)
 	mkdir -p $(FLATPAK_BUILD_DIR) $(FLATPAK_REPO_DIR)

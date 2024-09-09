@@ -85,6 +85,28 @@ A GTK3 desktop application written in Go, using gotk.
 
 This application is unpolished (but the underlying library providing the finance logic is unit tested and should work well). I do not view it as a good representation of "ideal" code. I have not refactored or enhanced the code. I initially wrote this application in 1 weekend. There are going to be bugs. It still works pretty well though.
 
+### Flatpak building and publishing
+
+Run the following commands to build and publish a flatpak, which currently is configured to use GitHub pages as the flatpak repo:
+
+```bash
+# WARNING: Publishing is a dangerous operation if you have lots of in-progress
+# changes.
+#
+# Commit and/or stash your changes to git first!! the entire repo goes through
+# some chaos and creates an orphan branch
+
+# first, build locally and install into a local flatpak - this installs
+# and may override your existing installation of this flatpak application, if
+# you have one:
+make build-linux-amd64 flatpak-build
+
+# publishing will do quite a bit of git operations and will push a fresh
+# orphan branch to the github pages branch, with brand new code and an empty
+# commit history
+make flatpak-publish
+```
+
 ## Attributions
 
 The app's icon is modified from Font Awesome, license here: <https://fontawesome.com/license>
