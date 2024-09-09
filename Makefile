@@ -17,6 +17,8 @@ FLATPAK_REPO_DIR=$(FLATPAK_REPO_BASE_DIR)/repo
 FLATPAK_REPO_GIT_BRANCH=flatpakrepo
 FLATPAK_REPO_GIT_ORPHAN_BRANCH=flatpakrepo-tmp
 FLATPAK_REPO_TMP_DIR=__TMP__FLATPAK__DIR__
+FLATPAK_REPO_GHPAGES_BASE_DIR=docs
+FLATPAK_REPO_GHPAGES_REPO_DIR=$(FLATPAK_REPO_GHPAGES_BASE_DIR)/repo
 GIT_REMOTE=origin
 GIT_MAIN_BRANCH=main
 
@@ -95,11 +97,11 @@ flatpak-publish: flatpak-build
 	mv $(FLATPAK_REPO_DIR) $(FLATPAK_REPO_TMP_DIR)
 	git checkout $(FLATPAK_REPO_GIT_BRANCH)
 	rm -rf $(FLATPAK_REPO_DIR)
-	mv $(FLATPAK_REPO_TMP_DIR) $(FLATPAK_REPO_DIR)
-	! git diff --quiet || git checkout $(GIT_MAIN_BRANCH) && exit 0
+	mv $(FLATPAK_REPO_TMP_DIR) $(FLATPAK_REPO_GHPAGES_REPO_DIR)
+	! git diff --quiet || exit 1
 	-git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
 	git checkout -b $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
-	git add $(FLATPAK_REPO_DIR)
+	git add $(FLATPAK_REPO_GHPAGES_REPO_DIR)
 	git commit -S -m "flatpakrepo build"
 	-git branch -D $(FLATPAK_REPO_GIT_BRANCH)
 	git checkout -b $(FLATPAK_REPO_GIT_BRANCH)
