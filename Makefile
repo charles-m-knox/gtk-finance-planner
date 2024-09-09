@@ -100,8 +100,8 @@ flatpak-publish: flatpak-build
 	mv $(FLATPAK_REPO_TMP_DIR) $(FLATPAK_REPO_GHPAGES_REPO_DIR)
 	! git diff --quiet || exit 1
 	-git branch -D $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
-	git checkout -b $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
-	git add $(FLATPAK_REPO_GHPAGES_REPO_DIR)
+	git checkout --orphan $(FLATPAK_REPO_GIT_ORPHAN_BRANCH)
+	git add -A
 	git commit -S -m "flatpakrepo build"
 	-git branch -D $(FLATPAK_REPO_GIT_BRANCH)
 	git checkout -b $(FLATPAK_REPO_GIT_BRANCH)
