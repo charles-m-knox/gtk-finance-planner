@@ -4,7 +4,7 @@ package constants
 
 const (
 	// Warning: do not remove this line; the makefile/build script relies on it
-	VERSION      = "0.1.2"
+	VERSION      = "0.1.3"
 	AboutMessage = "Finance Planner\n\nA way to manage recurring transactions.\n\nSource code: https://github.com/charles-m-knox/gtk-finance-planner"
 
 	APP_CONF_DIR      = "finance-planner"
