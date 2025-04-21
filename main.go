@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"fmt"
 	"log"
 	"os"
@@ -20,8 +19,8 @@ import (
 	"github.com/gotk3/gotk3/gtk"
 )
 
-//go:embed assets/*.png
-var embeddedIconFS embed.FS
+// // go : embed assets/*.png
+// var embeddedIconFS embed.FS
 
 func main() {
 	application, err := gtk.ApplicationNew(constants.GtkAppID, glib.APPLICATION_FLAGS_NONE)
@@ -222,7 +221,7 @@ func primary(application *gtk.Application, filename string) *state.WinState {
 	ws.Notebook = nb
 
 	cfgGrid, resultsGrid := ui.SetupNotebookPages(ws)
-	ui.SetWinIcon(ws, embeddedIconFS)
+	ui.SetWinIcon(ws /* , embeddedIconFS */)
 
 	ws.Win.SetTitle(constants.FinancialPlanner)
 	ws.Header.SetTitle(constants.FinancialPlanner)

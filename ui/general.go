@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"embed"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"time"
@@ -451,12 +451,20 @@ func SetupNotebookPages(ws *state.WinState) (*gtk.Grid, *gtk.Grid) {
 	return configGrid, resultsGrid
 }
 
-func SetWinIcon(ws *state.WinState, embeddedIconFS embed.FS) {
+func SetWinIcon(ws *state.WinState /* , embeddedIconFS embed.FS */) {
 	// TODO: investigate svg pixbuf loading instead of png loading
 	// pb, err := gdk.PixbufNewFromFile("./assets/icon-128.png")
-	icon, err := embeddedIconFS.ReadFile(c.IconAssetPath)
+
+	// TODO: when using `go install` to install this program, the embedfs
+	// is not included correctly?
+	// icon, err := embeddedIconFS.ReadFile(c.IconAssetPath)
+	// if err != nil {
+	// 	log.Fatalf("failed to load embedded app icon: %v", err.Error())
+	// }
+
+	icon, err := base64.StdEncoding.DecodeString(c.AppIconBase64Png)
 	if err != nil {
-		log.Fatalf("failed to load embedded app icon: %v", err.Error())
+		log.Fatalf("Failed to decode base64 image: %v", err)
 	}
 
 	pb, err := gdk.PixbufNewFromBytesOnly(icon)

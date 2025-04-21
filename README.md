@@ -23,7 +23,7 @@ includes `go env | grep GOBIN`.
 Then, use `go install`:
 
 ```bash
-CGO_ENABLED=1 go install -ldflags="-w -s -buildid= -X main.version=0.1.3" -trimpath github.com/charles-m-knox/gtk-finance-planner@latest
+CGO_ENABLED=1 go install -ldflags="-w -s -buildid= -X main.version=0.1.5" -trimpath github.com/charles-m-knox/gtk-finance-planner@latest
 ```
 
 ## Usage
